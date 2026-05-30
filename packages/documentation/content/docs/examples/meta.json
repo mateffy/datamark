@@ -1,0 +1,12 @@
+{
+  "title": "Examples",
+  "pages": [
+    "index",
+    "extract-invoice",
+    "extract-realestate",
+    "process-directory",
+    "enrich-records",
+    "watch-folder",
+    "pipelines"
+  ]
+}

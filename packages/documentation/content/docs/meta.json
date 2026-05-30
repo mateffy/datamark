@@ -1,0 +1,14 @@
+{
+  "title": "Struktur",
+  "pages": [
+    "index",
+    "quickstart",
+    "what-is-structured-data-extraction",
+    "what-is-an-extraction-agent",
+    "explanation",
+    "cli",
+    "sdk",
+    "skill",
+    "examples"
+  ]
+}

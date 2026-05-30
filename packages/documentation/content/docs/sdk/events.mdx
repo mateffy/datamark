@@ -1,0 +1,74 @@
+---
+title: Events & Observability
+description: Event handlers for progress tracking and observability.
+---
+
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## Available events
+
+<TypeTable
+  type={{
+    onStep: {
+      description: 'Fired at each named phase within a strategy',
+      type: '(info: { step: number; total?: number; label?: string }) => void',
+      required: false,
+    },
+    onMessage: {
+      description: 'Fired for every message in the LLM conversation',
+      type: '(msg: { role: string; content: unknown }) => void',
+      required: false,
+    },
+    onProgress: {
+      description: 'Fired when a strategy can report percentage progress',
+      type: '(progress: number) => void',
+      required: false,
+    },
+    onTokenUsage: {
+      description: 'Fired after each LLM call with token usage',
+      type: '(usage: { inputTokens: number; outputTokens: number; totalTokens: number }) => void',
+      required: false,
+    },
+  }}
+/>
+
+## Example: progress bar
+
+```js
+const result = await extract({
+  artifacts,
+  schema,
+  strategy: parallel({ model, mergeModel: model, chunkSize: 8000 }),
+  events: {
+    onStep: ({ step, total, label }) => {
+      process.stderr.write(`[${step}/${total ?? "?"}] ${label ?? "working"}\n`);
+    },
+    onTokenUsage: ({ totalTokens }) => {
+      process.stderr.write(`Tokens so far: ${totalTokens}\n`);
+    },
+  },
+});
+```
+
+## Example: observe retries
+
+```js
+const result = await extract({
+  artifacts,
+  schema,
+  strategy: simple({ model }),
+  events: {
+    onMessage: ({ role, content }) => {
+      if (role === "user" && String(content).includes("validation-errors")) {
+        console.log("Retry triggered");
+      }
+    },
+  },
+});
+```
+
+## See also
+
+- [extract()](/docs/sdk/extract) — main extraction function
+- [Validation & Retries](/docs/explanation/validation) — validation concept

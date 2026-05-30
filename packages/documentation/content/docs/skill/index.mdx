@@ -1,0 +1,69 @@
+---
+title: Struktur Agent Skill
+description: Install the Struktur agent skill to teach AI coding assistants how to use Struktur.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+Struktur provides an Agent Skill that teaches AI coding assistants (like Claude Code, OpenCode, Codex, etc.) how to use Struktur effectively.
+
+<Cards>
+  <Card title="Raw Skill File" description="View the skill source on GitHub" href="https://raw.githubusercontent.com/mateffy/struktur/refs/heads/main/packages/skill/skills/struktur/SKILL.md" external />
+</Cards>
+
+## What is an Agent Skill?
+
+An Agent Skill is a modular knowledge package that AI coding agents can discover and load automatically. Skills follow an open standard and work across 16+ AI agent tools.
+
+<Callout type="info">
+  When you ask your AI agent to work with Struktur, the skill automatically loads and provides:
+  - **API Usage**: How to use `extract()`, build artifacts, define schemas
+  - **Strategy Selection**: When to use `simple`, `parallel`, `sequential`, `doublePass`, etc.
+  - **Schema Definition**: JSON Schema patterns and shorthand field syntax
+  - **CLI Commands**: All struktur CLI commands and options
+  - **Best Practices**: Token budgets, validation retries, merge rules
+</Callout>
+
+## Why Use the Skill?
+
+Without the skill, you'd need to explain Struktur's API, strategies, and best practices in every conversation. With the skill installed, your AI agent already knows:
+
+- Which strategy to use for your use case
+- How to define schemas correctly
+- How to configure the CLI
+- Common patterns and gotchas
+
+## Supported Tools
+
+The skill works with any tool that supports the [Agent Skills open standard](https://github.com/anthropics/skills):
+
+| Tool | Support | Notes |
+|------|---------|-------|
+| Claude Code | ✅ | Full support with progressive disclosure |
+| OpenCode | ✅ | Full support |
+| OpenAI Codex | ✅ | Works alongside AGENTS.md |
+| Amp | ✅ | Full support |
+| VS Code (Copilot) | ✅ | Workspace-level installation |
+| Cursor | ✅ | Project-level installation |
+| Gemini CLI | ✅ | Full support |
+| JetBrains (Junie) | ✅ | IDE integration |
+
+And 10+ more tools.
+
+## Package
+
+The skill is distributed as an npm package: `@struktur/skill`
+
+```bash
+npm install @struktur/skill
+# or
+bun add @struktur/skill
+```
+
+## Next Steps
+
+<Cards>
+  <Card title="Installation Guide" description="Install for your preferred tool" href="/docs/skill/installation" />
+  <Card title="Usage Examples" description="How to use the skill with your AI agent" href="/docs/skill/usage" />
+</Cards>

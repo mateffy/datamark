@@ -1,0 +1,12 @@
+{
+  "title": "CLI",
+  "pages": [
+    "installation",
+    "extract",
+    "parse",
+    "verify",
+    "fields",
+    "config",
+    "utils"
+  ]
+}
