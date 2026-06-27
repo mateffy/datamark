@@ -1,43 +1,66 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
-@import "fumadocs-ui/css/solar.css";
+@import "fumadocs-ui/css/dusk.css";
 @import "fumadocs-ui/css/preset.css";
 
+@theme {
+  /* Dark mode base */
+  --color-void: #0B0A0F;
+  --color-surface: #15131B;
+  --color-elevated: #1C1924;
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-glow: rgba(82, 39, 255, 0.3);
+  --color-text-primary: #F0F0F5;
+  --color-text-secondary: #A0A0B0;
+  --color-text-muted: #606070;
+  --color-accent-purple: #5227FF;
+  --color-accent-pink: #FF9FFC;
+  --color-accent-blue: #60A5FA;
+
+  /* Slate overrides for dark */
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+  --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+}
+
+/* Global dark mode overrides */
+html.dark body {
+  background-color: var(--color-void);
+  color: var(--color-text-primary);
+}
+
 @keyframes terminal-cursor-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 @keyframes terminal-cursor-solid {
-  0%,
-  100% {
-    opacity: 1;
-  }
+  0%, 100% { opacity: 1; }
 }
 
 @keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fade-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(82, 39, 255, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(82, 39, 255, 0.4); }
 }
 
 /* Navbar responsive styles */
@@ -49,6 +72,7 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 12px;
+  z-index: 50;
 }
 
 @media (max-width: 768px) {
@@ -59,46 +83,13 @@
     align-items: center;
     padding: 16px 20px;
     gap: 24px;
-    border-bottom: 1px solid rgba(122, 92, 58, 0.2);
-  }
-}
-
-/* Hero image responsive styles */
-.hero-image {
-  width: 200px;
-  height: 200px;
-  object-fit: cover;
-}
-
-/* Hero section responsive styles */
-.hero-section {
-  display: flex;
-  align-items: center;
-  gap: 60px;
-}
-
-@media (max-width: 768px) {
-  .hero-image {
-    width: 150px;
-    height: 150px;
-  }
-  
-  .hero-section {
-    flex-direction: column;
-    gap: 40px;
-  }
-}
-
-@media (max-width: 480px) {
-  .hero-image {
-    width: 120px;
-    height: 120px;
+    border-bottom: 1px solid var(--color-border-subtle);
   }
 }
 
 /* Container responsive styles */
 .homepage-container {
-  max-width: 950px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0 40px 80px;
 }
@@ -164,20 +155,6 @@
   }
 }
 
-/* Parser grid responsive styles */
-.parser-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-@media (max-width: 768px) {
-  .parser-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* CTA grid responsive styles */
 .cta-grid {
   display: grid;
@@ -186,7 +163,7 @@
 }
 
 .cta-right-column {
-  border-left: 1px solid rgba(122, 92, 58, 0.15);
+  border-left: 1px solid var(--color-border-subtle);
   padding-left: 40px;
 }
 
@@ -195,24 +172,12 @@
     grid-template-columns: 1fr;
     gap: 32px;
   }
-  
+
   .cta-right-column {
     border-left: none;
-    border-top: 1px solid rgba(122, 92, 58, 0.15);
+    border-top: 1px solid var(--color-border-subtle);
     padding-left: 0;
     padding-top: 32px;
-  }
-}
-
-/* Terminal demo responsive styles */
-.terminal-container {
-  height: 222px;
-}
-
-@media (max-width: 768px) {
-  .terminal-container {
-    height: auto;
-    min-height: 180px;
   }
 }
 
@@ -222,11 +187,11 @@
     font-size: 48px !important;
     letter-spacing: -1px !important;
   }
-  
+
   .hero-subtitle {
     font-size: 17px !important;
   }
-  
+
   .section-title {
     font-size: 20px !important;
   }
@@ -237,29 +202,13 @@
     font-size: 36px !important;
     letter-spacing: -0.5px !important;
   }
-  
+
   .hero-subtitle {
     font-size: 15px !important;
   }
-  
+
   .section-title {
     font-size: 18px !important;
-  }
-}
-
-/* Command row responsive styles */
-.command-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-@media (max-width: 768px) {
-  .command-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
   }
 }
 
@@ -275,4 +224,31 @@
     justify-content: center;
     gap: 16px;
   }
+}
+
+/* Code block styling */
+.code-block-dark {
+  background-color: var(--color-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow: auto;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-void);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-subtle);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }

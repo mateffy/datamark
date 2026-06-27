@@ -1,0 +1,56 @@
+
+
+The simplest approach to structured Markdown is extracting frontmatter with regex and parsing the YAML yourself.
+
+The manual approach [#the-manual-approach]
+
+```typescript
+const match = content.match(/^---\n([\s\S]*?)\n---\n/);
+const frontmatter = match ? yaml.parse(match[1]) : {};
+```
+
+This works for simple cases, but it quickly breaks down:
+
+* No body parsing — you still have unstructured text
+* No typing — frontmatter is `any`
+* No validation — typos in YAML are silent
+* No positions — you can't point to where an error occurred
+
+The datamark approach [#the-datamark-approach]
+
+```typescript
+import { parse } from "datamark";
+
+const doc = parse(content);
+// doc.frontmatter is parsed YAML
+// doc.children is a structured AST
+```
+
+For typed, validated data, use the Format SDK:
+
+```typescript
+import { datamark, heading, inlineText } from "datamark";
+import * as z from "zod";
+
+const MyFormat = datamark({
+  schema: z.object({ title: z.string() }),
+  *parse(doc) {
+    const fm = yield* doc.frontmatter();
+    const h1 = yield* doc.consume(heading(1));
+    return { title: (fm as any)?.title ?? inlineText(h1.children) };
+  },
+});
+```
+
+| Feature                | Raw Frontmatter | datamark               |
+| ---------------------- | --------------- | ---------------------- |
+| Frontmatter extraction | ✅ Manual regex  | ✅ Built-in             |
+| YAML parsing           | ✅ External lib  | ✅ Built-in             |
+| Typed frontmatter      | ❌               | ✅ With Standard Schema |
+| Body AST               | ❌               | ✅                      |
+| Source positions       | ❌               | ✅                      |
+| Validation errors      | ❌               | ✅ Structured           |
+
+When to use raw frontmatter [#when-to-use-raw-frontmatter]
+
+If you literally only need one key from the frontmatter and nothing else, raw extraction is fine. For anything more complex, datamark gives you structure, types, and error handling for free.

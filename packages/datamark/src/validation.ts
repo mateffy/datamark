@@ -140,15 +140,4 @@ export function validateData<T extends StandardSchemaV1>(
   return result.value as StandardSchemaV1.InferOutput<T>;
 }
 
-/**
- * Validates frontmatter data against an optional schema.
- * Returns the data as-is when no schema is provided.
- */
-export function validateFrontmatter<T>(
-  data: Record<string, unknown> | null,
-  schema?: StandardSchemaV1<any, T>
-): T | null {
-  if (data === null) return null;
-  if (!schema) return data as T;
-  return validateData(schema, data);
-}
+

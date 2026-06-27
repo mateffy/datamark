@@ -6,14 +6,14 @@ import { TemplateParseError } from "./types";
 describe("docs", () => {
   test("records all combinators called in parse generator", () => {
     const docsGen = docs(function* (doc) {
-      yield* doc.consumeFrontmatter();
+      yield* doc.frontmatter();
       yield* doc.consume(heading(1));
       yield* doc.consume(paragraph());
       return {};
     });
     const result = docsGen();
     const combinators = result.steps.map((s) => s.combinator);
-    expect(combinators).toContain("consumeFrontmatter");
+    expect(combinators).toContain("frontmatter");
     expect(combinators).toContain("heading(1)");
     expect(combinators).toContain("paragraph()");
   });
@@ -34,14 +34,14 @@ describe("docs", () => {
 
   test("synthetic frontmatter", () => {
     const docsGen = docs(function* (doc) {
-      const fm = yield* doc.consumeFrontmatter();
+      const fm = yield* doc.frontmatter();
       // Access synthetic frontmatter properties to verify shape
       const _ = fm.id + fm.title;
       return _;
     });
     expect(() => docsGen()).not.toThrow();
     const result = docsGen();
-    expect(result.steps[0]!.combinator).toBe("consumeFrontmatter");
+    expect(result.steps[0]!.combinator).toBe("frontmatter");
   });
 
   test("synthetic heading(1) and heading(3) — depth parsed from combinator name regex", () => {
@@ -153,7 +153,7 @@ describe("docs", () => {
 
   test("multiple combinators recorded in order", () => {
     const docsGen = docs(function* (doc) {
-      yield* doc.consumeFrontmatter();
+      yield* doc.frontmatter();
       yield* doc.consume(heading(1));
       yield* doc.consume(paragraph());
       yield* doc.consume(codeBlock());
@@ -161,20 +161,20 @@ describe("docs", () => {
     });
     const result = docsGen();
     expect(result.steps).toHaveLength(4);
-    expect(result.steps[0]!.combinator).toBe("consumeFrontmatter");
+    expect(result.steps[0]!.combinator).toBe("frontmatter");
     expect(result.steps[1]!.combinator).toBe("heading(1)");
     expect(result.steps[2]!.combinator).toBe("paragraph()");
     expect(result.steps[3]!.combinator).toBe("codeBlock()");
   });
 
-  test("consumeFrontmatter recorded", () => {
+  test("frontmatter recorded", () => {
     const docsGen = docs(function* (doc) {
-      yield* doc.consumeFrontmatter();
+      yield* doc.frontmatter();
       return {};
     });
     const result = docsGen();
     expect(result.steps).toHaveLength(1);
-    expect(result.steps[0]!.combinator).toBe("consumeFrontmatter");
+    expect(result.steps[0]!.combinator).toBe("frontmatter");
   });
 
   test("empty parse generator → empty steps", () => {
@@ -187,7 +187,7 @@ describe("docs", () => {
 
   test("verify synthetic nodes have correct shape (HeadingNode has type 'heading', etc.)", () => {
     const docsGen = docs(function* (doc) {
-      const fm = yield* doc.consumeFrontmatter();
+      const fm = yield* doc.frontmatter();
       const h = yield* doc.consume(heading(1));
       const p = yield* doc.consume(paragraph());
       const c = yield* doc.consume(codeBlock({ lang: "ts" }));

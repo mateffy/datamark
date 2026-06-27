@@ -1,0 +1,19 @@
+
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+Reference for the generator-based format system.
+
+<Cards>
+  <Card title="datamark()" description="The format factory and FormatConfig options" href="/docs/template/datamark-function" />
+
+  <Card title="Parse Combinators" description="heading, splitBy, many, optional, until, rest" href="/docs/template/parse-combinators" />
+
+  <Card title="Emit Combinators" description="heading, codeBlock, markdown, todoItem, hr" href="/docs/template/emit-combinators" />
+
+  <Card title="trace()" description="Step-by-step debugging of format consumption" href="/docs/template/trace" />
+
+  <Card title="docs()" description="Auto-generated format documentation" href="/docs/template/docs" />
+
+  <Card title="test()" description="Example-driven format validation" href="/docs/template/test" />
+</Cards>

@@ -26,14 +26,13 @@ import {
   stringifyYaml,
   YamlParseError,
   validateData,
-  validateFrontmatter,
   ValidationError,
   datamark,
   parseTemplate,
   emitTemplate,
-  headingMatcher,
-  paragraphMatcher,
-  codeBlockMatcher,
+  heading,
+  paragraph,
+  codeBlock,
   optional,
   many,
   repeat,
@@ -41,9 +40,14 @@ import {
   rest,
   splitByCombinator,
   getCombinator,
-  emitMarkdown,
+  section,
+  any,
+  all,
+  except,
+  todo,
+  markdown,
   todoItem,
-  emitHr,
+  hr,
 } from "./index";
 import type { Position, SourceSpan } from "./position";
 import type {
@@ -119,14 +123,13 @@ describe("datamark public API", () => {
     expect(stringifyYaml).toBeDefined();
     expect(YamlParseError).toBeDefined();
     expect(validateData).toBeDefined();
-    expect(validateFrontmatter).toBeDefined();
     expect(ValidationError).toBeDefined();
     expect(datamark).toBeDefined();
     expect(parseTemplate).toBeDefined();
     expect(emitTemplate).toBeDefined();
-    expect(headingMatcher).toBeDefined();
-    expect(paragraphMatcher).toBeDefined();
-    expect(codeBlockMatcher).toBeDefined();
+    expect(heading).toBeDefined();
+    expect(paragraph).toBeDefined();
+    expect(codeBlock).toBeDefined();
     expect(optional).toBeDefined();
     expect(many).toBeDefined();
     expect(repeat).toBeDefined();
@@ -134,9 +137,14 @@ describe("datamark public API", () => {
     expect(rest).toBeDefined();
     expect(splitByCombinator).toBeDefined();
     expect(getCombinator).toBeDefined();
-    expect(emitMarkdown).toBeDefined();
+    expect(section).toBeDefined();
+    expect(any).toBeDefined();
+    expect(all).toBeDefined();
+    expect(except).toBeDefined();
+    expect(todo).toBeDefined();
+    expect(markdown).toBeDefined();
     expect(todoItem).toBeDefined();
-    expect(emitHr).toBeDefined();
+    expect(hr).toBeDefined();
   });
 
   test("Full workflow: parse markdown string, manipulate AST with findAll/isHeading, stringify back", () => {
@@ -151,11 +159,11 @@ describe("datamark public API", () => {
   test("Full format workflow: datamark with parse+stringify roundtrip", () => {
     const format = datamark({
       *parse(doc) {
-        const h = yield* doc.consume(headingMatcher(1));
+        const h = yield* doc.consume(heading(1));
         return { title: (h as any).children.map((c: any) => c.value).join("") };
       },
       *stringify(doc, data) {
-        yield* headingMatcher(1, data.title);
+        yield* heading(1, data.title);
       },
     });
     const result = format.parse("# Hello\n\nBody");
@@ -177,21 +185,10 @@ describe("datamark public API", () => {
     expect(secs.some((s) => s.heading?.depth === 2)).toBe(true);
   });
 
-  test("Validate frontmatter with mock schema via parse()", () => {
-    const schema = mockSchema((data) => {
-      if (data && typeof data === "object" && "id" in data && "title" in data)
-        return { value: data };
-      return { issues: [{ message: "Missing fields" }] };
-    });
-    const doc = parse(SAMPLE_MARKDOWN, { frontmatterSchema: schema as any });
-    expect(doc.frontmatter).toBeDefined();
-    expect(doc.frontmatter!.id).toBe("test-123");
-  });
-
   test("Trace real document via datamark", () => {
     const format = datamark({
       *parse(doc) {
-        const h = yield* doc.consume(headingMatcher(1));
+        const h = yield* doc.consume(heading(1));
         return { title: (h as any).children.map((c: any) => c.value).join("") };
       },
     });
@@ -205,7 +202,7 @@ describe("datamark public API", () => {
     const format = datamark({
       description: "A test format",
       *parse(doc) {
-        const h = yield* doc.consume(headingMatcher(1));
+        const h = yield* doc.consume(heading(1));
         return { title: (h as any).children.map((c: any) => c.value).join("") };
       },
     });
@@ -218,7 +215,7 @@ describe("datamark public API", () => {
     const format = datamark({
       examples: ["# Hello World"],
       *parse(doc) {
-        const h = yield* doc.consume(headingMatcher(1));
+        const h = yield* doc.consume(heading(1));
         return { title: (h as any).children.map((c: any) => c.value).join("") };
       },
     });
@@ -229,14 +226,6 @@ describe("datamark public API", () => {
   test("Invalid frontmatter YAML: error propagates correctly", () => {
     const badMd = "---\nnot yaml: [unclosed\n---\n\n# Hello";
     expect(() => parse(badMd)).toThrow(YamlParseError);
-  });
-
-  test("Schema validation failure: error propagates correctly", () => {
-    const schema = mockSchema(() => ({ issues: [{ message: "Invalid" }] }));
-    const md = "---\nid: 1\n---\n\n# Hello";
-    expect(() => parse(md, { frontmatterSchema: schema as any })).toThrow(
-      ValidationError
-    );
   });
 
   test("parseBody from top level returns BlockNode[]", () => {
@@ -322,5 +311,104 @@ describe("datamark public API", () => {
     expect(todos.length).toBe(2);
     expect(todos[0]!.completed).toBe(false);
     expect(todos[1]!.completed).toBe(true);
+  });
+
+  test("section combinator chunks by heading depth", () => {
+    const md = "## A\n\nBody A\n\n## B\n\nBody B";
+    const format = datamark({
+      *parse(doc) {
+        const chunks = yield* doc.consume(many(section(2)));
+        return { count: chunks.length, firstHeading: (chunks[0]?.[0] as any)?.children?.map((c: any) => c.value).join("") };
+      },
+    });
+    const result = format.parse(md);
+    expect(result.count).toBe(2);
+    expect(result.firstHeading).toBe("A");
+  });
+
+  test("consume with generator creates sub-contexts (chunking)", () => {
+    const md = "Body A\n\n---\n\nBody B";
+    const format = datamark({
+      *parse(doc) {
+        const secs = yield* doc.consume(splitByCombinator((n: any) => n.type === "hr"), function* (subdoc) {
+          const body = yield* subdoc.consume(rest());
+          return { content: textContent(body).trim() };
+        });
+        return { count: secs.length, contents: secs.map((s) => s.content) };
+      },
+    });
+    const result = format.parse(md);
+    expect(result.count).toBe(2);
+    expect(result.contents).toEqual(["Body A", "Body B"]);
+  });
+
+  test("consume with generator on flat result (single sub-context)", () => {
+    const md = "# Title\n\nIntro text\n\n## Section";
+    const format = datamark({
+      *parse(doc) {
+        const h1 = yield* doc.consume(heading(1));
+        const intro = yield* doc.consume(until(heading(2)), function* (subdoc) {
+          return textContent(subdoc.remaining);
+        });
+        return { title: inlineText(h1.children), intro: intro.trim() };
+      },
+    });
+    const result = format.parse(md);
+    expect(result.title).toBe("Title");
+    expect(result.intro).toBe("Intro text");
+  });
+
+  test("consume with transform function", () => {
+    const md = "# Title\n\nBody";
+    const format = datamark({
+      *parse(doc) {
+        const title = yield* doc.consume(heading(1), h => inlineText(h.children));
+        return { title };
+      },
+    });
+    const result = format.parse(md);
+    expect(result.title).toBe("Title");
+  });
+
+  test("peek does not advance cursor", () => {
+    const md = "# Title\n\nParagraph";
+    const format = datamark({
+      *parse(doc) {
+        const h1 = yield* doc.peek(heading(1));
+        const h1Again = yield* doc.consume(heading(1));
+        return { first: (h1 as any).children.map((c: any) => c.value).join(""), second: (h1Again as any).children.map((c: any) => c.value).join("") };
+      },
+    });
+    const result = format.parse(md);
+    expect(result.first).toBe("Title");
+    expect(result.second).toBe("Title");
+  });
+
+  test("consume with splitBy and generator", () => {
+    const md = "Body A\n\n---\n\nBody B\n\n---\n\nBody C";
+    const format = datamark({
+      *parse(doc) {
+        const secs = yield* doc.consume(splitByCombinator((n: any) => n.type === "hr"), function* (subdoc) {
+          const body = yield* subdoc.consume(rest());
+          return { content: textContent(body).trim() };
+        });
+        return { count: secs.length, contents: secs.map((s) => s.content) };
+      },
+    });
+    const result = format.parse(md);
+    expect(result.count).toBe(3);
+    expect(result.contents).toEqual(["Body A", "Body B", "Body C"]);
+  });
+
+  test("frontmatter() returns frontmatter data", () => {
+    const md = "---\nid: test\n---\n\n# Title";
+    const format = datamark({
+      *parse(doc) {
+        const fm = yield* doc.frontmatter();
+        return { id: (fm as any)?.id };
+      },
+    });
+    const result = format.parse(md);
+    expect(result.id).toBe("test");
   });
 });

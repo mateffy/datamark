@@ -65,9 +65,6 @@ export function emit<T>(
         return {
           type: "document",
           frontmatter,
-          title: frontmatter && typeof frontmatter["title"] === "string"
-            ? frontmatter["title"] as string
-            : null,
           children: nodes,
         };
       },

@@ -1,0 +1,43 @@
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+datamark re-exports thin wrappers around the `yaml` library for frontmatter handling.
+
+parseYaml() [#parseyaml]
+
+```typescript
+import { parseYaml } from "datamark";
+
+const data = parseYaml(`name: Ada\nage: 30`);
+// { name: "Ada", age: 30 }
+```
+
+stringifyYaml() [#stringifyyaml]
+
+```typescript
+import { stringifyYaml } from "datamark";
+
+const yaml = stringifyYaml({ name: "Ada", age: 30 });
+// "name: Ada\nage: 30\n"
+```
+
+YamlParseError [#yamlparseerror]
+
+Thrown when YAML parsing fails:
+
+```typescript
+import { YamlParseError } from "datamark";
+
+try {
+  parseYaml("bad: [");
+} catch (err) {
+  if (err instanceof YamlParseError) {
+    console.error(err.message);
+  }
+}
+```
+
+<Callout type="info">
+  These are thin wrappers. For advanced YAML features, use the `yaml` package directly.
+</Callout>

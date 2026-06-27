@@ -1,0 +1,27 @@
+# datamark Documentation
+
+- [Frontmatter](/docs/core/frontmatter): Extract and split YAML frontmatter from Markdown strings.
+- [AST SDK](/docs/core): undefined
+- [parse() & stringify()](/docs/core/parse-and-stringify): Parse Markdown strings into typed documents and serialize them back.
+- [Tree Utilities](/docs/core/tree-utils): Query, filter, split, and serialize the AST without writing raw loops.
+- [YAML](/docs/core/yaml): Parse and stringify YAML with datamark's built-in helpers.
+- [API Documentation](/docs/examples/api-docs-format): Structured API docs with endpoints, parameters, and return types.
+- [Basic Format](/docs/examples/basic-format): A project plan with frontmatter, title, and step sections.
+- [Blog Post](/docs/examples/blog-post-format): A blog post with metadata, body content, and tags.
+- [Examples](/docs/examples): undefined
+- [Todo List](/docs/examples/todo-list-format): Parsing todo items with checkboxes, priorities, and descriptions.
+- [The AST](/docs/explanation/ast): The fully typed abstract syntax tree that datamark produces from Markdown.
+- [Combinators](/docs/explanation/combinators): How node matchers, combinator modifiers, and structural combinators work under the hood.
+- [Explanation](/docs/explanation): undefined
+- [Format SDK](/docs/explanation/template-system): How the generator-based format system works, from parse runners to emit runners.
+- [Trace & Test](/docs/explanation/trace-and-test): Debugging formats with trace() and validating them in CI with test().
+- [Validation](/docs/explanation/validation): Standard Schema v1 support, validation errors, and typed frontmatter.
+- [What is datamark?](/docs): A TypeScript library for parsing Markdown into typed objects and serializing them back using declarative generator-based formats.
+- [Quickstart](/docs/quickstart): Get started with datamark in under 5 minutes. Parse your first Markdown document into a typed object.
+- [datamark()](/docs/template/datamark-function): The format factory and all FormatConfig options.
+- [docs()](/docs/template/docs): Auto-generated format documentation from combinator metadata.
+- [Emit Combinators](/docs/template/emit-combinators): All combinators available in stringify generators.
+- [Format SDK](/docs/template): undefined
+- [Parse Combinators](/docs/template/parse-combinators): All combinators available in parse generators.
+- [test()](/docs/template/test): Example-driven format validation.
+- [trace()](/docs/template/trace): Step-by-step debugging of format consumption.

@@ -6,7 +6,7 @@ import { TemplateParseError } from "./types";
 describe("trace", () => {
   test("basic trace: records steps for frontmatter + heading + paragraph", () => {
     const tracer = trace(function* (doc) {
-      const fm = yield* doc.consumeFrontmatter();
+      const fm = yield* doc.frontmatter();
       const title = yield* doc.consume(heading(1));
       const body = yield* doc.consume(paragraph());
       return { fm, title, body };
@@ -14,24 +14,24 @@ describe("trace", () => {
 
     const result = tracer("---\nid: test\n---\n\n# Title\n\nHello world.");
     expect(result.steps).toHaveLength(3);
-    expect(result.steps[0]!.type).toBe("consumeFrontmatter");
+    expect(result.steps[0]!.type).toBe("frontmatter");
     expect(result.steps[1]!.type).toBe("consume");
     expect(result.steps[2]!.type).toBe("consume");
   });
 
-  test("records consumeFrontmatter step with correct type", () => {
+  test("records frontmatter step with correct type", () => {
     const tracer = trace(function* (doc) {
-      yield* doc.consumeFrontmatter();
+      yield* doc.frontmatter();
       return {};
     });
     const result = tracer("---\nfoo: bar\n---");
-    expect(result.steps[0]!.type).toBe("consumeFrontmatter");
-    expect(result.steps[0]!.combinator).toBe("consumeFrontmatter");
+    expect(result.steps[0]!.type).toBe("frontmatter");
+    expect(result.steps[0]!.combinator).toBe("frontmatter");
   });
 
   test("records consume steps with consumed nodes", () => {
     const tracer = trace(function* (doc) {
-      yield* doc.consumeFrontmatter();
+      yield* doc.frontmatter();
       yield* doc.consume(heading(1));
       yield* doc.consume(paragraph());
       return {};
@@ -45,7 +45,7 @@ describe("trace", () => {
 
   test("records metadata (description, examples) attached via .description()/.examples()", () => {
     const tracer = trace(function* (doc) {
-      yield* doc.consumeFrontmatter();
+      yield* doc.frontmatter();
       const y = (doc.consume(heading(1)) as any).description("The title").examples(["# Title"]) as ReturnType<typeof doc.consume>;
       yield* y;
       return {};
@@ -58,7 +58,7 @@ describe("trace", () => {
 
   test("source regions are correct line/col numbers", () => {
     const tracer = trace(function* (doc) {
-      yield* doc.consumeFrontmatter();
+      yield* doc.frontmatter();
       yield* doc.consume(heading(1));
       yield* doc.consume(paragraph());
       return {};
@@ -74,7 +74,7 @@ describe("trace", () => {
 
   test("trace.result matches normal parse result", () => {
     const tracer = trace(function* (doc) {
-      const fm = yield* doc.consumeFrontmatter();
+      const fm = yield* doc.frontmatter();
       const h = yield* doc.consume(heading(1));
       return { fm, text: h.children[0]!.type === "text" ? h.children[0]!.value : "" };
     });
@@ -85,7 +85,7 @@ describe("trace", () => {
 
   test("trace.document has full AST with positions", () => {
     const tracer = trace(function* (doc) {
-      yield* doc.consumeFrontmatter();
+      yield* doc.frontmatter();
       yield* doc.consume(heading(1));
       return {};
     });
@@ -95,13 +95,13 @@ describe("trace", () => {
     expect(result.document.children[0]!.position).toBeDefined();
   });
 
-  test("step type 'consumeFrontmatter' for frontmatter", () => {
+  test("step type 'frontmatter' for frontmatter", () => {
     const tracer = trace(function* (doc) {
-      yield* doc.consumeFrontmatter();
+      yield* doc.frontmatter();
       return {};
     });
     const result = tracer("---\na: 1\n---");
-    expect(result.steps.every((s) => s.type === "consumeFrontmatter")).toBe(true);
+    expect(result.steps.every((s) => s.type === "frontmatter")).toBe(true);
   });
 
   test("step type 'consume' for combinators", () => {
@@ -116,7 +116,7 @@ describe("trace", () => {
 
   test("consumed array empty for frontmatter", () => {
     const tracer = trace(function* (doc) {
-      yield* doc.consumeFrontmatter();
+      yield* doc.frontmatter();
       return {};
     });
     const result = tracer("---\na: 1\n---");
@@ -147,7 +147,7 @@ describe("trace", () => {
 
   test("region default {line:1, col:1} for empty consumed", () => {
     const tracer = trace(function* (doc) {
-      yield* doc.consumeFrontmatter();
+      yield* doc.frontmatter();
       return {};
     });
     const result = tracer("");
@@ -221,12 +221,12 @@ describe("trace", () => {
 
   test("trace empty document (no steps or minimal)", () => {
     const tracer = trace(function* (doc) {
-      yield* doc.consumeFrontmatter();
+      yield* doc.frontmatter();
       return { done: true };
     });
     const result = tracer("");
     expect(result.steps).toHaveLength(1);
-    expect(result.steps[0]!.type).toBe("consumeFrontmatter");
+    expect(result.steps[0]!.type).toBe("frontmatter");
     expect(result.result).toEqual({ done: true });
   });
 });

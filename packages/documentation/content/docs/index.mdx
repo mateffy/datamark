@@ -1,157 +1,84 @@
 ---
-title: What is Struktur?
-description: All-in-one tool for structured data extraction using an autonomous agent that turns documents into validated JSON.
+title: What is datamark?
+description: A TypeScript library for parsing Markdown into typed objects and serializing them back using declarative generator-based formats.
 ---
 
 import { Card, Cards } from 'fumadocs-ui/components/card';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-Struktur is an all-in-one tool for structured data extraction using an **autonomous agent**. It turns documents into validated, schema-typed JSON by having an LLM agent explore the content, decide what to read, and build the output incrementally.
+datamark is a TypeScript library for turning Markdown documents into typed objects — and back again. It gives you a **declarative, generator-based format system** where you define how a document is consumed using combinators like `heading(1)`, `splitByCombinator(heading(2))`, and `many(codeBlock())`.
 
 <Cards>
-  <Card title="CLI Tool" description="Extract data from the command line with a simple, intuitive interface" href="/docs/cli" />
-  <Card title="TypeScript SDK" description="Programmatic API for embedding extraction in your applications" href="/docs/sdk" />
-  <Card title="Agent Strategy" description="Autonomous exploration with virtual filesystem tools" href="/docs/explanation/strategies#agent" />
-  <Card title="Examples" description="Real-world extraction patterns and use cases" href="/docs/examples" />
+  <Card title="AST SDK" description="Parse documents, extract frontmatter, query the AST" href="/docs/core" />
+  <Card title="Format SDK" description="Define bidirectional formats with datamark()" href="/docs/template" />
+  <Card title="Examples" description="Real-world format definitions for common patterns" href="/docs/examples" />
+  <Card title="Comparisons" description="How datamark compares to alternatives" href="/compare" />
 </Cards>
 
-## Why Struktur?
+## Why datamark?
 
-Large document batches arrive with data locked in semi-structured text. Invoices need to flow into spreadsheets. Product datasheets need to become database rows. The tooling exists, but the orchestration overhead is disproportionate to the extraction task itself.
+Markdown is the universal format for structured text, but parsing it into typed data usually means one of two things:
 
-Managed APIs charge per page, impose schema constraints, and require document uploads to external infrastructure. LLM SDKs provide raw model access but leave you to write chunking, validation, retries, and merging every time.
+1. **Regex and string manipulation** — fragile, unreadable, unmaintainable.
+2. **Abstract syntax trees** — powerful, but you still write imperative traversal code.
 
-Struktur fills the gap: a focused extraction engine with an **autonomous agent** that handles the orchestration so you can focus on the output.
+datamark gives you a third option: **declare the shape of your document and get the shape of your data**.
 
-### Why an Agent?
-
-Traditional extraction strategies (simple, parallel, sequential) require you to choose the right approach upfront. The agent decides:
-
-- **When to read** — entire document or specific sections
-- **How to search** — grep for patterns, list directories, execute bash commands
-- **What to extract** — build output incrementally as it explores
-- **How to validate** — check against schema and retry automatically
-
-The agent adapts to your document. Small invoices get read in one shot. Large catalogs get navigated systematically. The result is better accuracy without configuration complexity.
-
-### Why not managed APIs?
-
-| Limitation | Impact |
-|------------|--------|
-| Per-page pricing | Does not scale for large batches |
-| Schema constraints | You work within their data model |
-| Document upload | Non-starter for confidential workloads |
-| Black-box behavior | Debugging extraction failures is opaque |
-
-### Why not a plain LLM SDK call?
-
-A single `generateText()` call gives you:
-
-- No chunking for large documents
-- No retries on schema validation failure
-- No merging of multi-chunk results
-- No typed output inferred from your schema
-
-You write the same orchestration boilerplate every time. Struktur's agent packages that orchestration into a single, adaptive strategy.
-
-## Design philosophy
+A format is a pair of generator functions. The `parse` generator consumes the AST using `yield*` combinators. The `stringify` generator emits nodes back into Markdown. Both share the same mental model.
 
 <Callout type="info">
-  **Agent-first, zero configuration.** The agent strategy is the default. It explores documents autonomously, deciding when to read, search, or extract. No need to pick chunk sizes or parallelism upfront.
+  **Bring your own validator.** datamark uses the Standard Schema v1 interface, so Zod, Valibot, ArkType, TypeBox, and any compliant library work out of the box.
 </Callout>
-
-- **Autonomous exploration.** The agent uses a virtual filesystem to read files, grep for patterns, find files, and execute commands. It builds output incrementally as it discovers data.
-- **Shell-composable by default.** Reads stdin, writes stdout, speaks JSON. Integrates with `jq`, `find`, `curl`, and any tool in your pipeline.
-- **Validation in the loop.** Errors go back to the model, not to you. The retry loop means most extractions converge within two attempts.
-- **Schema-first.** You define the shape, Struktur guarantees it.
-- **Fields shorthand.** Skip the JSON Schema boilerplate with `--fields "title, price:number, status:enum{draft|live}"`.
-
-## Trade-offs
-
-| Trade-off | Rationale |
-|-----------|-----------|
-| Requires tool-calling models | The agent needs models that support function calling (Claude, GPT-4, etc.) |
-| Depends on Vercel AI SDK providers | OpenAI, Anthropic, Google supported; self-hosted models need OpenAI-compatible API |
-| Token costs vary by document | The agent makes multiple tool calls; large documents cost more than small ones |
 
 ## A 10-second demo
 
-```bash
-struktur extract --input invoice.pdf \
-  --fields "number, vendor, total:number"
+```typescript
+import { datamark, heading, inlineText } from "datamark";
+import * as z from "zod";
+
+const Plan = datamark({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  *parse(doc) {
+    const fm = yield* doc.frontmatter();
+    const title = yield* doc.consume(heading(1));
+    return { id: (fm as any)?.id ?? "", title: inlineText(title.children) };
+  },
+  *stringify(doc, data) {
+    yield* doc.emitFrontmatter({ id: data.id });
+    yield* heading(1, data.title);
+  },
+});
+
+const result = Plan.parse(`---
+id: plan-001
+---
+# Q3 Roadmap`);
+// { id: "plan-001", title: "Q3 Roadmap" }
 ```
 
-Expected output:
-
-```json
-{
-  "number": "1042",
-  "vendor": "Acme Corp",
-  "total": 2400
-}
-```
-
-The agent reads the PDF, decides how to extract the fields, and returns validated JSON.
-
-## What Struktur is NOT
+## What datamark is NOT
 
 <Callout type="warn">
-  **It is not a general document conversion tool.** It parses files for extraction purposes, not for format conversion. It does not produce formatted output from documents.
+  **It is not a static site generator.** It parses and transforms Markdown, but it does not build HTML pages or apply themes.
 </Callout>
 
-- **It is not a managed API.** It runs locally and calls your provider directly.
-- **It does not stream.** Input in, JSON out.
-- **It is not a general LLM orchestration framework.**
-
-For the full mental model, see [The Extraction Pipeline](/docs/explanation/pipeline).
+- **It is not a Markdown renderer.** It produces data, not HTML.
+- **It does not stream.** Input string in, typed object out.
+- **It is not a general-purpose parser generator.** It is specifically designed for Markdown documents.
 
 ## Who is it for?
 
 <Cards>
-  <Card title="CLI Users" description="Data engineers, analysts, shell pipeline builders — use Struktur for one-off extractions, batch processing, and CI/CD automation without writing code." />
-  <Card title="SDK Users" description="TypeScript developers embedding extraction in applications — use Struktur for typed results, custom strategies, and fine-grained control over the extraction pipeline." />
+  <Card title="CLI & Script Developers" description="Parse READMEs, changelogs, plan files, and API docs into structured data for automation, validation, and CI." />
+  <Card title="Application Developers" description="Embed typed Markdown parsing into your app for user-generated content, configuration files, and documentation formats." />
 </Cards>
-
-## What is the Agent Strategy?
-
-The agent strategy is the default and recommended way to use Struktur. It implements:
-
-- **Virtual filesystem tools** — read, grep, find, ls, bash
-- **Output management** — set_output_data, update_output_data, finish, fail
-- **Autonomous exploration** — the agent decides what to do based on your schema
-- **Incremental extraction** — builds output as it discovers data
-
-### How it works
-
-1. The agent receives your schema and access to a virtual filesystem containing the document
-2. It can read files, search for patterns, list directories, and execute commands
-3. As it finds data, it calls `set_output_data` or `update_output_data` to build the result
-4. When complete, it calls `finish` to return validated JSON
-
-### When to use other strategies
-
-The agent is the default and works best for most documents. However, other strategies are available for specific cases:
-
-| Strategy | When to use |
-|----------|-------------|
-| `agent` (default) | Autonomous exploration — best for most documents |
-| `simple` | Small input that fits in one context window |
-| `parallel` | Large input where speed matters more than accuracy |
-| `sequential` | Large input where order matters |
-| `parallelAutoMerge` | Large arrays with parallel processing + deduplication |
-| `sequentialAutoMerge` | Large arrays with sequential processing + deduplication |
-| `doublePass` | Maximum quality with two-pass refinement |
-| `doublePassAutoMerge` | Maximum quality with arrays + deduplication |
-
-See [Extraction Strategies](/docs/explanation/strategies) for details on all strategies.
 
 ## Quick navigation
 
 | Goal | Section |
 |------|---------|
 | New here? | [Quickstart](/docs/quickstart) |
-| Need to accomplish something? | [Examples](/docs/examples) |
-| Looking up a flag or type? | [CLI Reference](/docs/cli) |
-| Quick schema without writing JSON? | [Fields Shorthand](/docs/cli/fields) |
-| Want to understand how it works? | [Concepts](/docs/explanation) |
-| Parse files into artifacts? | [Document Parsing](/docs/explanation/document-parsing) |
+| Understand the architecture | [Format SDK](/docs/explanation/template-system) |
+| Look up a function | [AST SDK](/docs/core) |
+| See real formats | [Examples](/docs/examples) |
+| Compare to alternatives | [Comparisons](/compare) |

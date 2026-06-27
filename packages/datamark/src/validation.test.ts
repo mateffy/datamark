@@ -1,7 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import {
   validateData,
-  validateFrontmatter,
   ValidationError,
   type StandardSchemaV1,
 } from "./validation";
@@ -49,32 +48,6 @@ describe("validateData", () => {
       },
     };
     expect(() => validateData(schema, {})).toThrow(TypeError);
-  });
-});
-
-describe("validateFrontmatter", () => {
-  test("no schema returns data as-is", () => {
-    expect(validateFrontmatter({ foo: "bar" })).toEqual({ foo: "bar" });
-  });
-
-  test("null data returns null", () => {
-    expect(validateFrontmatter(null)).toBeNull();
-  });
-
-  test("with schema validates and returns value", () => {
-    const schema = createMockSchema((data) => ({ value: data }));
-    expect(validateFrontmatter({ foo: "bar" }, schema)).toEqual({
-      foo: "bar",
-    });
-  });
-
-  test("schema failure throws ValidationError", () => {
-    const schema = createMockSchema(() => ({
-      issues: [{ message: "bad" }],
-    }));
-    expect(() => validateFrontmatter({ foo: "bar" }, schema)).toThrow(
-      ValidationError
-    );
   });
 });
 

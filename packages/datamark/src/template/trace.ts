@@ -22,7 +22,7 @@ import {
   getYieldableMeta,
 } from "./yieldable";
 import type { NodeMatcher } from "./parse";
-import { getCombinator } from "./parse";
+import { makeConsumeYieldable } from "./parse";
 
 /**
  * Create a tracer from a generator function.
@@ -36,7 +36,6 @@ export function trace<T>(
   return (content: string) => {
     const document = parseDocument(content);
     let remaining = document.children;
-    let frontmatterConsumed = false;
     const steps: TraceStep[] = [];
 
     function regionFromNodes(nodes: BlockNode[]): TraceStep["region"] {
@@ -74,33 +73,53 @@ export function trace<T>(
       });
     }
 
+    function wrapYieldable<T>(
+      y: Yieldable<T>,
+      type: TraceStep["type"],
+      before: BlockNode[]
+    ): Yieldable<T> {
+      const coreRun = getYieldableRun(y)!;
+      (y as any).run = (ctx: ParseContext) => {
+        const result = coreRun(ctx);
+        if (result) {
+          const consumed = before.slice(
+            0,
+            before.length - result.remaining.length
+          );
+          const meta = getYieldableMeta(y);
+          recordStep(
+            type,
+            getCombinatorName(y),
+            meta?.description,
+            meta?.examples,
+            result.value,
+            consumed,
+            regionFromNodes(consumed)
+          );
+        }
+        return result;
+      };
+      return y;
+    }
+
     const ctx: ParseContext = {
       document,
       get remaining() {
         return remaining;
       },
 
-      consumeFrontmatter() {
-        const y = createYieldable(
-          "consumeFrontmatter",
-          "consumeFrontmatter",
-          () => {
-            if (frontmatterConsumed) {
-              return { value: document.frontmatter, remaining };
-            }
-            frontmatterConsumed = true;
-            return { value: document.frontmatter, remaining };
-          }
-        );
-        // Wrap the run function to record the step
-        const originalRun = getYieldableRun(y)!;
+      frontmatter() {
+        const y = createYieldable("frontmatter", "frontmatter", () => {
+          return { value: document.frontmatter, remaining };
+        });
+        const coreRun = getYieldableRun(y)!;
         (y as any).run = (ctx: ParseContext) => {
-          const result = originalRun(ctx);
+          const result = coreRun(ctx);
           if (result) {
             const meta = getYieldableMeta(y);
             recordStep(
-              "consumeFrontmatter",
-              "consumeFrontmatter",
+              "frontmatter",
+              "frontmatter",
               meta?.description,
               meta?.examples,
               result.value,
@@ -116,46 +135,44 @@ export function trace<T>(
         return y;
       },
 
-      consume<T>(matcher: NodeMatcher<T> | Combinator<T>): Yieldable<T> {
-        const combinator = getCombinator(matcher) ?? (matcher as Combinator<T>);
-        const name =
-          typeof matcher === "function" && "_combinatorName" in matcher
-            ? (matcher as any)._combinatorName ?? "consume"
-            : "consume";
+      consume<T, R = T>(
+        matcher: Combinator<T> | NodeMatcher<T>,
+        transform?:
+          | ((value: T) => R)
+          | ((doc: ParseContext) => Generator<Yieldable<unknown>, R, unknown>)
+      ): Yieldable<R | T> {
+        const before = remaining;
+        const y = makeConsumeYieldable(
+          matcher,
+          transform,
+          remaining,
+          "root",
+          (newRemaining) => {
+            remaining = newRemaining;
+          },
+          false
+        );
+        return wrapYieldable(y, "consume", before);
+      },
 
-        const y = createYieldable("consume", name, () => {
-          const result = combinator(remaining);
-          if (result === null) {
-            throw new TemplateParseError(
-              `Parse combinator failed during trace`
-            );
-          }
-          remaining = result.remaining;
-          return result;
-        });
-
-        // Wrap the run function to record the step
-        const originalRun = getYieldableRun(y)!;
-        (y as any).run = (ctx: ParseContext) => {
-          const before = remaining;
-          const result = originalRun(ctx);
-          if (result) {
-            const consumed = before.slice(0, before.length - result.remaining.length);
-            const meta = getYieldableMeta(y);
-            recordStep(
-              "consume",
-              name,
-              meta?.description,
-              meta?.examples,
-              result.value,
-              consumed,
-              regionFromNodes(consumed)
-            );
-          }
-          return result;
-        };
-
-        return y;
+      peek<T, R = T>(
+        matcher: Combinator<T> | NodeMatcher<T>,
+        transform?:
+          | ((value: T) => R)
+          | ((doc: ParseContext) => Generator<Yieldable<unknown>, R, unknown>)
+      ): Yieldable<R | T> {
+        const before = remaining;
+        const y = makeConsumeYieldable(
+          matcher,
+          transform,
+          remaining,
+          "root",
+          () => {
+            // peek doesn't advance parent cursor
+          },
+          true
+        );
+        return wrapYieldable(y, "peek", before);
       },
     };
 

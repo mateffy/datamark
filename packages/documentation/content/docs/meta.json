@@ -1,14 +1,11 @@
 {
-  "title": "Struktur",
+  "title": "datamark",
   "pages": [
     "index",
     "quickstart",
-    "what-is-structured-data-extraction",
-    "what-is-an-extraction-agent",
     "explanation",
-    "cli",
-    "sdk",
-    "skill",
+    "core",
+    "template",
     "examples"
   ]
 }

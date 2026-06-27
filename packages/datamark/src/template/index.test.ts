@@ -287,7 +287,7 @@ describe("datamark format", () => {
         return { issues: [{ message: "Missing id" }] };
       }),
       *parse(doc) {
-        const fm = yield* doc.consumeFrontmatter();
+        const fm = yield* doc.frontmatter();
         return { id: (fm as any)?.id ?? "", title: (fm as any)?.title ?? "" };
       },
       *stringify(doc, data) {

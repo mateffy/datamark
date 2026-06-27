@@ -1,10 +1,8 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
-import { LogoAnimation } from "@/components/LogoAnimation";
 
-// fill this with your actual GitHub info, for example:
 export const gitConfig = {
   user: "mateffy",
-  repo: "struktur",
+  repo: "datamark",
   branch: "main",
 };
 
@@ -13,8 +11,20 @@ export function baseOptions(): BaseLayoutProps {
     nav: {
       title: (
         <>
-          <LogoAnimation size={28} />
-          <span className="font-medium">Struktur</span>
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="inline-block mr-2"
+          >
+            <rect x="3" y="3" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.9" />
+            <rect x="14" y="3" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.6" />
+            <rect x="3" y="14" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.6" />
+            <rect x="14" y="14" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.3" />
+          </svg>
+          <span className="font-medium">datamark</span>
         </>
       ),
     },

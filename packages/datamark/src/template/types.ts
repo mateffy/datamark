@@ -1,7 +1,7 @@
 /**
- * Core types for the datamark template system.
+ * Core types for the datamark Format SDK.
  *
- * The template system provides a generator-based API for parsing Markdown
+ * The Format SDK provides a generator-based API for parsing Markdown
  * documents into typed objects and serializing them back. It uses a custom
  * iterable protocol so combinators work with `yield*`.
  */
@@ -85,15 +85,41 @@ export interface ParseContext {
   readonly remaining: BlockNode[];
 
   /**
-   * Consume the frontmatter object. Returns it once; subsequent calls
-   * return the same value but do not re-consume.
+   * Get the frontmatter object. Always returns the same value;
+   * frontmatter is not part of the cursor.
    */
-  consumeFrontmatter(): Yieldable<Record<string, unknown> | null>;
+  frontmatter(): Yieldable<Record<string, unknown> | null>;
 
   /**
    * Run a combinator against the remaining nodes and advance the cursor.
+   *
+   * Without a second argument: returns the combinator result directly.
+   *
+   * With a transform function: applies the function to the result and
+   * returns the transformed value.
+   *
+   * With a generator function: creates sub-context(s) from the result and
+   * runs the generator. For chunking combinators (BlockNode[][]), runs on
+   * each chunk and collects into an array. For flat results, runs once.
    */
-  consume<T>(combinator: Combinator<T>): Yieldable<T>;
+  consume<T, R = T>(
+    combinator: Combinator<T> | NodePredicate,
+    transform?:
+      | ((value: T) => R)
+      | ((doc: ParseContext) => Generator<Yieldable<unknown>, R, unknown>)
+  ): Yieldable<R | T>;
+
+  /**
+   * Run a combinator against the remaining nodes without advancing the cursor.
+   * Same signature and behavior as consume(), but the parent cursor does
+   * not move.
+   */
+  peek<T, R = T>(
+    combinator: Combinator<T> | NodePredicate,
+    transform?:
+      | ((value: T) => R)
+      | ((doc: ParseContext) => Generator<Yieldable<unknown>, R, unknown>)
+  ): Yieldable<R | T>;
 }
 
 // ============================================================================

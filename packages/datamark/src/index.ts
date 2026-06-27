@@ -9,7 +9,6 @@ export { parseYaml, stringifyYaml, YamlParseError } from "./yaml";
 export {
   parse,
   stringify,
-  type ParseOptions,
 } from "./document";
 
 export {
@@ -63,7 +62,6 @@ export {
 
 export {
   validateData,
-  validateFrontmatter,
   ValidationError,
   type StandardSchemaV1,
 } from "./validation";
@@ -71,14 +69,14 @@ export {
 // Position tracking
 export type { Position, SourceSpan } from "./position";
 
-// Template system
+// Format SDK
 export {
   datamark,
   parse as parseTemplate,
   emit as emitTemplate,
-  heading as headingMatcher,
-  paragraph as paragraphMatcher,
-  codeBlock as codeBlockMatcher,
+  heading,
+  paragraph,
+  codeBlock,
   optional,
   many,
   repeat,
@@ -86,9 +84,14 @@ export {
   rest,
   splitBy as splitByCombinator,
   getCombinator,
-  markdown as emitMarkdown,
+  section,
+  any,
+  all,
+  except,
+  todo,
+  markdown,
   todoItem,
-  hr as emitHr,
+  hr,
   type Format,
   type FormatConfig,
   type ParseContext,

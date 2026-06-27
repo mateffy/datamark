@@ -1,0 +1,53 @@
+---
+title: datamark vs Remark Plugins
+description: Using the unified/remark ecosystem for AST transformation compared to datamark's generator approach.
+---
+
+The unified/remark ecosystem is the dominant toolchain for Markdown processing in JavaScript. How does datamark compare?
+
+## The remark approach
+
+Remark gives you an AST (mdast) and lets you write plugins that transform it:
+
+```typescript
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+
+const tree = unified().use(remarkParse).parse(content);
+// Now write a visitor that walks the tree
+```
+
+This is powerful and well-supported, but it is fundamentally **imperative**. You write a visitor that mutates or inspects nodes. The structure of your code does not mirror the structure of your document.
+
+## The datamark approach
+
+datamark gives you combinators that consume the AST declaratively:
+
+```typescript
+*parse(doc) {
+  const fm = yield* doc.frontmatter();
+  const title = yield* doc.consume(heading(1));
+  const sections = yield* doc.consume(splitByCombinator(heading(2)));
+  return { title: inlineText(title.children), sections };
+}
+```
+
+This reads like the document itself. Each line maps to a structural element.
+
+| Feature | Remark | datamark |
+|---------|--------|----------|
+| Ecosystem size | ✅ Massive | Small |
+| AST standard | mdast | datamark AST |
+| Plugin model | Visitor-based | Generator-based |
+| Bidirectional | ❌ (separate stringify) | ✅ Built-in |
+| TypeScript | Partial | Fully typed |
+| Frontmatter | Via plugin | Built-in |
+| Validation | Via plugin | Standard Schema |
+| Trace/debug | Manual logging | Step-by-step |
+| Learning curve | Medium | Low |
+
+## When to use remark
+
+If you need to transform Markdown to HTML, apply syntax highlighting, generate a table of contents, or integrate with a massive plugin ecosystem, remark is the right choice.
+
+If you need to **parse Markdown into typed objects** and optionally **serialize them back**, datamark is purpose-built for that job.

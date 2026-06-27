@@ -1,0 +1,82 @@
+
+
+```typescript
+import { datamark, heading, splitByCombinator, codeBlock, markdown, inlineText, textContent } from "datamark";
+import * as z from "zod";
+
+const PlanFormat = datamark({
+  schema: z.object({
+    id: z.string(),
+    title: z.string(),
+    steps: z.array(z.object({
+      description: z.string(),
+      scripts: z.array(z.string()),
+    })),
+  }),
+
+  *parse(doc) {
+    const fm = yield* doc.frontmatter();
+    const title = yield* doc.consume(heading(1));
+    const sections = yield* doc.consume(splitByCombinator(heading(2)));
+
+    const steps = sections.map((section) => {
+      const scripts = section
+        .filter((n) => n.type === "code")
+        .map((n: any) => n.value);
+      const other = section.filter((n) => n.type !== "code");
+      const description = other
+        .map((n: any) => ("value" in n ? n.value : ""))
+        .join("\n")
+        .trim();
+      return { description, scripts };
+    });
+
+    return { id: (fm as any)?.id ?? "", title: inlineText(title.children), steps };
+  },
+
+  *stringify(doc, data) {
+    yield* doc.emitFrontmatter({ id: data.id, title: data.title });
+    yield* heading(1, data.title);
+    for (const step of data.steps) {
+      yield* heading(2, "Step");
+      if (step.description) yield* markdown(step.description);
+      for (const s of step.scripts) yield* codeBlock("javascript", s);
+    }
+  },
+});
+```
+
+Example input [#example-input]
+
+````markdown
+---
+id: plan-001
+---
+# Q3 Roadmap
+
+## Step
+
+Set up the project.
+
+```javascript
+npm init -y
+````
+
+Step [#step]
+
+Implement the core.
+
+````
+
+### Example output
+
+```json
+{
+  "id": "plan-001",
+  "title": "Q3 Roadmap",
+  "steps": [
+    { "description": "Set up the project.", "scripts": ["npm init -y"] },
+    { "description": "Implement the core.", "scripts": [] }
+  ]
+}
+````

@@ -1,0 +1,62 @@
+
+
+```typescript
+import { datamark, heading, until, rest, markdown, inlineText, textContent } from "datamark";
+import * as z from "zod";
+
+const BlogPostFormat = datamark({
+  schema: z.object({
+    meta: z.object({
+      title: z.string(),
+      date: z.string(),
+      author: z.string(),
+      tags: z.array(z.string()),
+    }),
+    body: z.string(),
+  }),
+
+  *parse(doc) {
+    const fm = yield* doc.frontmatter();
+    const meta = fm as any;
+    const bodyNodes = yield* doc.consume(rest());
+    const body = bodyNodes.map((n: any) => n.raw ?? "").join("\n").trim();
+    return { meta, body };
+  },
+
+  *stringify(doc, data) {
+    yield* doc.emitFrontmatter(data.meta);
+    yield* markdown(data.body);
+  },
+});
+```
+
+Example input [#example-input]
+
+```markdown
+---
+title: Hello World
+date: 2026-05-30
+author: Ada
+tags: [typescript, markdown]
+---
+
+This is the first paragraph.
+
+## Subheading
+
+More content here.
+```
+
+Example output [#example-output]
+
+```json
+{
+  "meta": {
+    "title": "Hello World",
+    "date": "2026-05-30",
+    "author": "Ada",
+    "tags": ["typescript", "markdown"]
+  },
+  "body": "This is the first paragraph.\n\n## Subheading\n\nMore content here."
+}
+```

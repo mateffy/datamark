@@ -1,5 +1,5 @@
 /**
- * Datamark Template System
+ * Datamark Format SDK
  *
  * A generator-based API for parsing Markdown documents into typed objects
  * and serializing them back. Built on top of the core datamark AST and
@@ -98,6 +98,11 @@ export {
   splitBy,
   rest,
   getCombinator,
+  section,
+  any,
+  all,
+  except,
+  todo,
 } from "./parse";
 
 export {

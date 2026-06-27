@@ -40,6 +40,9 @@ export default defineConfig({
           path: "/compare",
         },
         {
+          path: "/landing",
+        },
+        {
           path: "/api/search",
         },
         {

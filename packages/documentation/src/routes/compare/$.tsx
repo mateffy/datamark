@@ -29,10 +29,10 @@ export const Route = createFileRoute("/compare/$")({
     const { slugs } = loaderData ?? {};
     const title =
       slugs && slugs.length > 0
-        ? `Struktur vs ${slugs.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ")} - Struktur`
-        : "Comparisons - Struktur";
+        ? `datamark vs ${slugs.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ")} - datamark`
+        : "Comparisons - datamark";
     const description =
-      "Compare Struktur to alternatives for structured data extraction and document processing.";
+      "Compare datamark to alternatives for declarative Markdown parsing and structured document formats.";
 
     return {
       meta: [
@@ -41,14 +41,14 @@ export const Route = createFileRoute("/compare/$")({
         { property: "og:title", content: title },
         { property: "og:description", content: description },
         { property: "og:type", content: "article" },
-        { property: "og:url", content: `https://struktur.sh/compare/${slugs?.join("/") ?? ""}` },
-        { property: "og:image", content: "https://struktur.sh/og.webp" },
+        { property: "og:url", content: `https://datamark.md/compare/${slugs?.join("/") ?? ""}` },
+        { property: "og:image", content: "https://datamark.md/og.webp" },
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:title", content: title },
         { name: "twitter:description", content: description },
-        { name: "twitter:image", content: "https://struktur.sh/og.webp" },
+        { name: "twitter:image", content: "https://datamark.md/og.webp" },
       ],
-      links: [{ rel: "canonical", href: `https://struktur.sh/compare/${slugs?.join("/") ?? ""}` }],
+      links: [{ rel: "canonical", href: `https://datamark.md/compare/${slugs?.join("/") ?? ""}` }],
     };
   },
 });

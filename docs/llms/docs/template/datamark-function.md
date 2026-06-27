@@ -1,0 +1,89 @@
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+`datamark(config)` creates a reusable `Format<T>` that can parse Markdown into typed objects and serialize them back.
+
+Signature [#signature]
+
+```typescript
+function datamark<T>(config: FormatConfig<T>): Format<T>;
+```
+
+FormatConfig [#formatconfig]
+
+| Property      | Type                                       | Required | Description                       |
+| ------------- | ------------------------------------------ | -------- | --------------------------------- |
+| `schema`      | `StandardSchemaV1`                         | No       | Validates parsed results          |
+| `description` | `string`                                   | No       | Human-readable format description |
+| `examples`    | `Array<string \| FormatExample>`           | No       | Examples for docs and testing     |
+| `parse`       | `(doc: ParseContext) => Generator`         | **Yes**  | Generator that consumes the AST   |
+| `stringify`   | `(doc: EmitContext, data: T) => Generator` | No       | Generator that emits nodes        |
+
+Format [#format]
+
+| Method                   | Returns         | Description                                 |
+| ------------------------ | --------------- | ------------------------------------------- |
+| `parse(content: string)` | `T`             | Parse Markdown, validate if schema provided |
+| `stringify(data: T)`     | `string`        | Serialize data back to Markdown             |
+| `trace(content: string)` | `ParseTrace<T>` | Step-by-step consumption log                |
+| `docs()`                 | `FormatDocs`    | Static documentation                        |
+| `test()`                 | `TestResult`    | Validate examples                           |
+
+Example [#example]
+
+```typescript
+import { datamark, heading, splitByCombinator } from "datamark";
+import * as z from "zod";
+
+const PlanFormat = datamark({
+  schema: z.object({
+    id: z.string(),
+    title: z.string(),
+    steps: z.array(z.object({
+      description: z.string(),
+      scripts: z.array(z.string()),
+    })),
+  }),
+
+  description: "A project plan with frontmatter, title, and step sections.",
+
+  examples: [
+    {
+      text: `---\nid: plan-001\n---\n# Roadmap\n\n## Step\n\nSetup.\n\n\`\`\`js\nnpm init\n\`\`\``,
+      data: {
+        id: "plan-001",
+        title: "Roadmap",
+        steps: [{ description: "Setup.", scripts: ["npm init"] }],
+      },
+    },
+  ],
+
+  *parse(doc) {
+    const fm = yield* doc.frontmatter();
+    const title = yield* doc.consume(heading(1));
+    const sections = yield* doc.consume(splitByCombinator(heading(2)));
+    const steps = sections.map((section) => ({
+      description: section.map((n: any) => n.value ?? "").join("\n").trim(),
+      scripts: section
+        .filter((n: any) => n.type === "code")
+        .map((n: any) => n.value),
+    }));
+    return { id: (fm as any)?.id ?? "", title: inlineText(title.children), steps };
+  },
+
+  *stringify(doc, data) {
+    yield* doc.emitFrontmatter({ id: data.id, title: data.title });
+    yield* heading(1, data.title);
+    for (const step of data.steps) {
+      yield* heading(2, "Step");
+      if (step.description) yield* markdown(step.description);
+      for (const s of step.scripts) yield* codeBlock("javascript", s);
+    }
+  },
+});
+```
+
+<Callout type="info">
+  When `stringify` is omitted, calling `stringify()` on the format throws a clear error telling you to provide one.
+</Callout>

@@ -1,0 +1,85 @@
+
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+datamark is a TypeScript library for turning Markdown documents into typed objects — and back again. It gives you a **declarative, generator-based format system** where you define how a document is consumed using combinators like `heading(1)`, `splitByCombinator(heading(2))`, and `many(codeBlock())`.
+
+<Cards>
+  <Card title="AST SDK" description="Parse documents, extract frontmatter, query the AST" href="/docs/core" />
+
+  <Card title="Format SDK" description="Define bidirectional formats with datamark()" href="/docs/template" />
+
+  <Card title="Examples" description="Real-world format definitions for common patterns" href="/docs/examples" />
+
+  <Card title="Comparisons" description="How datamark compares to alternatives" href="/compare" />
+</Cards>
+
+Why datamark? [#why-datamark]
+
+Markdown is the universal format for structured text, but parsing it into typed data usually means one of two things:
+
+1. **Regex and string manipulation** — fragile, unreadable, unmaintainable.
+2. **Abstract syntax trees** — powerful, but you still write imperative traversal code.
+
+datamark gives you a third option: **declare the shape of your document and get the shape of your data**.
+
+A format is a pair of generator functions. The `parse` generator consumes the AST using `yield*` combinators. The `stringify` generator emits nodes back into Markdown. Both share the same mental model.
+
+<Callout type="info">
+  **Bring your own validator.** datamark uses the Standard Schema v1 interface, so Zod, Valibot, ArkType, TypeBox, and any compliant library work out of the box.
+</Callout>
+
+A 10-second demo [#a-10-second-demo]
+
+```typescript
+import { datamark, heading, inlineText } from "datamark";
+import * as z from "zod";
+
+const Plan = datamark({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  *parse(doc) {
+    const fm = yield* doc.frontmatter();
+    const title = yield* doc.consume(heading(1));
+    return { id: (fm as any)?.id ?? "", title: inlineText(title.children) };
+  },
+  *stringify(doc, data) {
+    yield* doc.emitFrontmatter({ id: data.id });
+    yield* heading(1, data.title);
+  },
+});
+
+const result = Plan.parse(`---
+id: plan-001
+---
+# Q3 Roadmap`);
+// { id: "plan-001", title: "Q3 Roadmap" }
+```
+
+What datamark is NOT [#what-datamark-is-not]
+
+<Callout type="warn">
+  **It is not a static site generator.** It parses and transforms Markdown, but it does not build HTML pages or apply themes.
+</Callout>
+
+* **It is not a Markdown renderer.** It produces data, not HTML.
+* **It does not stream.** Input string in, typed object out.
+* **It is not a general-purpose parser generator.** It is specifically designed for Markdown documents.
+
+Who is it for? [#who-is-it-for]
+
+<Cards>
+  <Card title="CLI & Script Developers" description="Parse READMEs, changelogs, plan files, and API docs into structured data for automation, validation, and CI." />
+
+  <Card title="Application Developers" description="Embed typed Markdown parsing into your app for user-generated content, configuration files, and documentation formats." />
+</Cards>
+
+Quick navigation [#quick-navigation]
+
+| Goal                        | Section                                         |
+| --------------------------- | ----------------------------------------------- |
+| New here?                   | [Quickstart](/docs/quickstart)                  |
+| Understand the architecture | [Format SDK](/docs/explanation/template-system) |
+| Look up a function          | [AST SDK](/docs/core)                           |
+| See real formats            | [Examples](/docs/examples)                      |
+| Compare to alternatives     | [Comparisons](/compare)                         |

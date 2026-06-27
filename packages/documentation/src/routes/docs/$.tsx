@@ -29,58 +29,26 @@ export const Route = createFileRoute("/docs/$")({
     const { slugs } = loaderData ?? {};
     const title =
       slugs && slugs.length > 0
-        ? `${slugs.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ")} - Struktur`
-        : "Documentation - Struktur";
+        ? `${slugs.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ")} - datamark`
+        : "Documentation - datamark";
     const description =
-      "Struktur documentation: structured data extraction with AI. CLI and SDK for TypeScript.";
+      "datamark documentation: parse Markdown into typed objects. Declarative generator-based format system for TypeScript.";
 
     return {
       meta: [
-        {
-          title,
-        },
-        {
-          name: "description",
-          content: description,
-        },
-        {
-          property: "og:title",
-          content: title,
-        },
-        {
-          property: "og:description",
-          content: description,
-        },
-        {
-          property: "og:type",
-          content: "article",
-        },
-        {
-          property: "og:url",
-          content: `https://struktur.sh/docs/${slugs?.join("/") ?? ""}`,
-        },
-        {
-          property: "og:image",
-          content: "https://struktur.sh/og.webp",
-        },
-        {
-          name: "twitter:card",
-          content: "summary_large_image",
-        },
-        {
-          name: "twitter:title",
-          content: title,
-        },
-        {
-          name: "twitter:description",
-          content: description,
-        },
-        {
-          name: "twitter:image",
-          content: "https://struktur.sh/og.webp",
-        },
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:type", content: "article" },
+        { property: "og:url", content: `https://datamark.md/docs/${slugs?.join("/") ?? ""}` },
+        { property: "og:image", content: "https://datamark.md/og.webp" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+        { name: "twitter:image", content: "https://datamark.md/og.webp" },
       ],
-      links: [{ rel: "canonical", href: `https://struktur.sh/docs/${slugs?.join("/") ?? ""}` }],
+      links: [{ rel: "canonical", href: `https://datamark.md/docs/${slugs?.join("/") ?? ""}` }],
     };
   },
 });
@@ -104,7 +72,6 @@ const loader = createServerFn({
 const clientLoader = browserCollections.docs.createClientLoader({
   component(
     { toc, frontmatter, default: MDX },
-    // you can define props for the component
     {
       markdownUrl,
       path,

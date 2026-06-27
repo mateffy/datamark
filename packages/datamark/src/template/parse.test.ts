@@ -18,7 +18,7 @@ import {
 describe("Basic parse", () => {
   test("parse frontmatter + heading + paragraph", () => {
     const parser = parse(function* (doc) {
-      const fm = yield* doc.consumeFrontmatter();
+      const fm = yield* doc.frontmatter();
       const h1 = yield* doc.consume(heading(1));
       const para = yield* doc.consume(paragraph());
       return { fm, h1, para };
@@ -37,18 +37,18 @@ describe("Basic parse", () => {
     expect(parser("# Hello")).toBe("done");
   });
 
-  test("consumeFrontmatter returns frontmatter", () => {
+  test("frontmatter returns frontmatter", () => {
     const parser = parse(function* (doc) {
-      return yield* doc.consumeFrontmatter();
+      return yield* doc.frontmatter();
     });
     const result = parser("---\nid: 1\n---\n\n# Hello");
     expect(result).toEqual({ id: 1 });
   });
 
-  test("consumeFrontmatter idempotent (call twice → same)", () => {
+  test("frontmatter idempotent (call twice → same)", () => {
     const parser = parse(function* (doc) {
-      const fm1 = yield* doc.consumeFrontmatter();
-      const fm2 = yield* doc.consumeFrontmatter();
+      const fm1 = yield* doc.frontmatter();
+      const fm2 = yield* doc.frontmatter();
       return { fm1, fm2 };
     });
     const result = parser("---\nid: 1\n---\n\n# Hello");
@@ -56,9 +56,9 @@ describe("Basic parse", () => {
     expect(result.fm1).toEqual({ id: 1 });
   });
 
-  test("consumeFrontmatter no frontmatter → null", () => {
+  test("frontmatter no frontmatter → null", () => {
     const parser = parse(function* (doc) {
-      return yield* doc.consumeFrontmatter();
+      return yield* doc.frontmatter();
     });
     expect(parser("# Hello")).toBeNull();
   });

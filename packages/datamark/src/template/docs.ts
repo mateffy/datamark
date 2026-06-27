@@ -23,7 +23,7 @@ import {
   getYieldableMeta,
 } from "./yieldable";
 import type { NodeMatcher } from "./parse";
-import { getCombinator } from "./parse";
+import { makeConsumeYieldable } from "./parse";
 
 // ============================================================================
 // Synthetic values for docs
@@ -87,6 +87,24 @@ export function docs<T>(
       });
     }
 
+    function wrapYieldable<T>(y: Yieldable<T>): Yieldable<T> {
+      const coreRun = getYieldableRun(y)!;
+      (y as any).run = (ctx: ParseContext) => {
+        try {
+          const result = coreRun(ctx);
+          recordDocs(y, getCombinatorName(y) ?? "consume");
+          return result;
+        } catch {
+          // Combinator failed — provide synthetic value
+          const name = getCombinatorName(y) ?? "consume";
+          const synth = syntheticValue(name);
+          recordDocs(y, name);
+          return { value: synth as T, remaining };
+        }
+      };
+      return y;
+    }
+
     const ctx: ParseContext = {
       document: {
         type: "document",
@@ -98,45 +116,57 @@ export function docs<T>(
         return remaining;
       },
 
-      consumeFrontmatter() {
+      frontmatter() {
         const y = createYieldable(
-          "consumeFrontmatter",
-          "consumeFrontmatter",
+          "frontmatter",
+          "frontmatter",
           () => ({ value: syntheticFrontmatter(), remaining })
         );
+        const coreRun = getYieldableRun(y)!;
         (y as any).run = () => {
-          recordDocs(y, "consumeFrontmatter");
-          return { value: syntheticFrontmatter(), remaining };
+          const result = coreRun(ctx);
+          recordDocs(y, "frontmatter");
+          return result;
         };
         return y;
       },
 
-      consume<T>(matcher: NodeMatcher<T> | Combinator<T>): Yieldable<T> {
-        const combinator = getCombinator(matcher) ?? (matcher as Combinator<T>);
-        const name =
-          typeof matcher === "function" && "_combinatorName" in matcher
-            ? (matcher as any)._combinatorName ?? "consume"
-            : "consume";
+      consume<T, R = T>(
+        matcher: Combinator<T> | NodeMatcher<T>,
+        transform?:
+          | ((value: T) => R)
+          | ((doc: ParseContext) => Generator<Yieldable<unknown>, R, unknown>)
+      ): Yieldable<R | T> {
+        const y = makeConsumeYieldable(
+          matcher,
+          transform,
+          remaining,
+          "docs",
+          (newRemaining) => {
+            remaining = newRemaining;
+          },
+          false
+        );
+        return wrapYieldable(y);
+      },
 
-        const y = createYieldable("consume", name, () => {
-          // Try the combinator first on current remaining
-          const result = combinator(remaining);
-          if (result !== null) {
-            remaining = result.remaining;
-            return result;
-          }
-          // Fall back to synthetic value
-          const synth = syntheticValue(name) as T;
-          return { value: synth, remaining };
-        });
-
-        const originalRun = getYieldableRun(y)!;
-        (y as any).run = () => {
-          recordDocs(y, name);
-          return originalRun(ctx);
-        };
-
-        return y;
+      peek<T, R = T>(
+        matcher: Combinator<T> | NodeMatcher<T>,
+        transform?:
+          | ((value: T) => R)
+          | ((doc: ParseContext) => Generator<Yieldable<unknown>, R, unknown>)
+      ): Yieldable<R | T> {
+        const y = makeConsumeYieldable(
+          matcher,
+          transform,
+          remaining,
+          "docs",
+          () => {
+            // peek doesn't advance parent cursor
+          },
+          true
+        );
+        return wrapYieldable(y);
       },
     };
 

@@ -1,0 +1,15 @@
+
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+Practical format definitions for common document patterns.
+
+<Cards>
+  <Card title="Basic Format" description="Frontmatter + title + step sections" href="/docs/examples/basic-format" />
+
+  <Card title="Blog Post" description="Metadata, body, and tags" href="/docs/examples/blog-post-format" />
+
+  <Card title="Todo List" description="Checkboxes, priorities, and due dates" href="/docs/examples/todo-list-format" />
+
+  <Card title="API Documentation" description="Endpoints, parameters, and return types" href="/docs/examples/api-docs-format" />
+</Cards>

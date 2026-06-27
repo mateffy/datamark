@@ -1,0 +1,61 @@
+
+
+JSON Schema is the standard way to describe structured data. Could you use it to describe a Markdown document format?
+
+The JSON Schema approach [#the-json-schema-approach]
+
+You would define a schema for the output shape:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "title": { "type": "string" },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "heading": { "type": "string" },
+          "content": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+```
+
+But JSON Schema describes **output shape**, not **how to parse**. It doesn't tell you:
+
+* Which heading depth marks a section boundary
+* How to extract code blocks vs. paragraphs
+* How to handle optional frontmatter
+* How to serialize back to Markdown
+
+The datamark approach [#the-datamark-approach]
+
+datamark combines schema validation with parsing logic:
+
+```typescript
+const PlanFormat = datamark({
+  schema: z.object({ title: z.string(), sections: z.array(...) }),
+  *parse(doc) {
+    const title = yield* doc.consume(heading(1));
+    const sections = yield* doc.consume(splitBy(heading(2)));
+    // ...map to schema shape
+  },
+});
+```
+
+| Feature           | JSON Schema | datamark                |
+| ----------------- | ----------- | ----------------------- |
+| Output validation | ✅           | ✅ (via Standard Schema) |
+| Parsing logic     | ❌           | ✅ Generator functions   |
+| Bidirectional     | ❌           | ✅ Parse + stringify     |
+| Trace/debug       | ❌           | ✅ Step-by-step          |
+| Self-testing      | ❌           | ✅ Inline examples       |
+| Markdown-specific | ❌           | ✅ AST combinators       |
+
+When to use JSON Schema [#when-to-use-json-schema]
+
+JSON Schema is excellent for API payloads, configuration files, and any data that doesn't live in Markdown. When your input is a Markdown document, you need parsing logic too — and that's where datamark fits.

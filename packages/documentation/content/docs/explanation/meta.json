@@ -1,11 +1,11 @@
 {
-  "title": "Concepts",
+  "title": "Explanation",
   "pages": [
-    "pipeline",
-    "document-parsing",
-    "artifact-format",
-    "strategies",
-    "chunking",
-    "validation"
+    "index",
+    "ast",
+    "template-system",
+    "combinators",
+    "validation",
+    "trace-and-test"
   ]
 }

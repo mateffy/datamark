@@ -1,9 +1,9 @@
 {
   "title": "Comparisons",
   "pages": [
-    "llamaindex",
-    "unstract",
-    "instructor",
-    "manual-llm-calls"
+    "index",
+    "raw-frontmatter",
+    "json-schema",
+    "remark-plugins"
   ]
 }

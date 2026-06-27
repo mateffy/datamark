@@ -29,10 +29,10 @@ export const Route = createFileRoute("/blog/$")({
     const { slugs } = loaderData ?? {};
     const title =
       slugs && slugs.length > 0
-        ? `${slugs.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ")} - Struktur`
-        : "Blog - Struktur";
+        ? `${slugs.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ")} - datamark`
+        : "Blog - datamark";
     const description =
-      "Technical articles about structured data extraction, LLM agents, and document processing.";
+      "Articles about declarative Markdown parsing, generator-based APIs, and structured document formats in TypeScript.";
 
     return {
       meta: [
@@ -41,14 +41,14 @@ export const Route = createFileRoute("/blog/$")({
         { property: "og:title", content: title },
         { property: "og:description", content: description },
         { property: "og:type", content: "article" },
-        { property: "og:url", content: `https://struktur.sh/blog/${slugs?.join("/") ?? ""}` },
-        { property: "og:image", content: "https://struktur.sh/og.webp" },
+        { property: "og:url", content: `https://datamark.md/blog/${slugs?.join("/") ?? ""}` },
+        { property: "og:image", content: "https://datamark.md/og.webp" },
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:title", content: title },
         { name: "twitter:description", content: description },
-        { name: "twitter:image", content: "https://struktur.sh/og.webp" },
+        { name: "twitter:image", content: "https://datamark.md/og.webp" },
       ],
-      links: [{ rel: "canonical", href: `https://struktur.sh/blog/${slugs?.join("/") ?? ""}` }],
+      links: [{ rel: "canonical", href: `https://datamark.md/blog/${slugs?.join("/") ?? ""}` }],
     };
   },
 });

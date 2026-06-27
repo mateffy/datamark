@@ -269,7 +269,7 @@ describe("createTestRunner", () => {
   test("example with frontmatter + body", () => {
     const config: FormatConfig<unknown> = {
       parse: function* (doc) {
-        const fm = yield* doc.consumeFrontmatter();
+        const fm = yield* doc.frontmatter();
         const h = yield* doc.consume(heading(1));
         return {
           id: (fm as any)?.id,
@@ -299,7 +299,7 @@ describe("createTestRunner", () => {
   test("example that produces nested object result", () => {
     const config: FormatConfig<unknown> = {
       parse: function* (doc) {
-        const fm = yield* doc.consumeFrontmatter();
+        const fm = yield* doc.frontmatter();
         const h = yield* doc.consume(heading(1));
         return {
           meta: { id: (fm as any)?.id },

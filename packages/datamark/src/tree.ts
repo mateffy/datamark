@@ -176,7 +176,6 @@ export type BlockNode =
 export interface Document {
   type: "document";
   frontmatter: Record<string, unknown> | null;
-  title: string | null;
   children: BlockNode[];
 }
 

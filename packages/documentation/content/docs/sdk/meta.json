@@ -1,9 +1,0 @@
-{
-  "title": "SDK",
-  "pages": [
-    "installation",
-    "extract",
-    "parse",
-    "events"
-  ]
-}

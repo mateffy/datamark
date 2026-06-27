@@ -1,22 +1,12 @@
 ---
 title: Quickstart
-description: Get started with Struktur in under 5 minutes. Extract structured data from any file.
+description: Get started with datamark in under 5 minutes. Parse your first Markdown document into a typed object.
 ---
 
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Callout } from 'fumadocs-ui/components/callout';
-import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
 
-Extract structured data from any file in 3 commands. About 5 minutes.
-
-<Callout type="info">
-  **Using an AI assistant?** Point it at `https://struktur.sh/llms.txt` for LLM-optimized docs, or install the [Agent Skill](/docs/skill) for built-in Struktur knowledge.
-</Callout>
-
-## Prerequisites
-
-- Node.js 18+ or Bun installed
-- An API key from OpenAI, Anthropic, Google, OpenCode, or OpenRouter
+Parse your first Markdown document into a typed object in three steps. About 5 minutes.
 
 <Steps>
 
@@ -24,86 +14,106 @@ Extract structured data from any file in 3 commands. About 5 minutes.
 
 ### Install
 
-<Tabs items={['npm', 'Bun']} groupId="package-manager">
-  <Tab value="npm">
 ```bash
-npm install -g @struktur/cli
-```
-  </Tab>
-  <Tab value="Bun">
-```bash
-bun install -g @struktur/cli
-```
-  </Tab>
-</Tabs>
-
-Verify:
-
-```bash
-struktur --help
+npm install datamark
 ```
 
-You should see the usage output.
+For validation, also install your schema library of choice:
+
+```bash
+npm install zod
+```
 
 </Step>
 
 <Step>
 
-### Configure your API key
+### Write your first format
 
-Store your API key securely with the CLI:
+Create a file that describes how your Markdown is structured:
 
-```bash
-echo "sk-..." | struktur config providers add openai --token-stdin --default
+```typescript
+import { datamark, heading, markdown, codeBlock, todoItem, inlineText, textContent, extractTodoItems, splitByCombinator } from "datamark";
+import * as z from "zod";
+
+const PlanFormat = datamark({
+  schema: z.object({
+    id: z.string(),
+    title: z.string(),
+    steps: z.array(z.object({
+      title: z.string(),
+      description: z.string(),
+      scripts: z.array(z.string()),
+    })),
+  }),
+
+  *parse(doc) {
+    const fm = yield* doc.frontmatter();
+    const titleNode = yield* doc.consume(heading(1));
+    const steps = yield* doc.consume(splitByCombinator(heading(2)), function* (subdoc) {
+      const h2 = yield* subdoc.consume(heading(2));
+      const body = yield* subdoc.consume(rest());
+      const scripts = body
+        .filter((n) => n.type === "code")
+        .map((n: any) => n.value);
+      return {
+        title: inlineText(h2.children),
+        description: textContent(body),
+        scripts,
+      };
+    });
+
+    return { id: (fm as any)?.id ?? "", title: inlineText(titleNode.children), steps };
+  },
+
+  *stringify(doc, data) {
+    yield* doc.emitFrontmatter({ id: data.id, title: data.title });
+    yield* heading(1, data.title);
+    for (const step of data.steps) {
+      yield* heading(2, "Step");
+      if (step.description) yield* markdown(step.description);
+      for (const s of step.scripts) yield* codeBlock("javascript", s);
+    }
+  },
+});
 ```
-
-The `--default` flag automatically queries the provider API and sets the cheapest available model as default, so `--model` becomes optional in all future commands.
-
-Output: `{ "provider": "openai", "stored": "keychain" }` (or `"file"` on Linux).
-
-#### Set a default model (if not using --default)
-
-```bash
-struktur config models use openai/gpt-4o-mini
-```
-
-Once set, `--model` is optional in all `extract` commands.
 
 </Step>
 
 <Step>
 
-### Extract your first data
+### Parse a document
 
-<Tabs items={['From text', 'From PDF']} groupId="input-type">
-  <Tab value="From text">
-```bash
-echo "Invoice #1042 from Acme Corp. Total: $2,400.00. Due: April 1, 2026." | \
-  struktur --stdin \
-  --fields "invoice_number, vendor, total:number, due_date" \
-  --model openai/gpt-4o-mini
+```typescript
+const markdown = `---
+id: plan-001
+---
+# Q3 Roadmap
+
+## Set up project scaffolding
+
+Install dependencies.
+
+\`\`\`javascript
+npm init -y
+\`\`\`
+
+## Implement core features
+
+Build the main functionality.
+`;
+
+const result = PlanFormat.parse(markdown);
+console.log(result);
+// {
+//   id: "plan-001",
+//   title: "Q3 Roadmap",
+//   steps: [
+//     { title: "Set up project scaffolding", description: "Install dependencies.\n\n```javascript\nnpm init -y\n```", scripts: ["npm init -y"] },
+//     { title: "Implement core features", description: "Build the main functionality.", scripts: [] },
+//   ],
+// }
 ```
-  </Tab>
-  <Tab value="From PDF">
-```bash
-struktur --input invoice.pdf \
-  --fields "invoice_number, vendor, total:number, due_date" \
-  --model openai/gpt-4o-mini
-```
-  </Tab>
-</Tabs>
-
-The `--fields` flag builds a JSON Schema on the fly. Each field defaults to `string`; append `:number`, `:integer`, `:bool`, etc. to set the type. See [Fields Shorthand](/docs/cli/fields) for the full syntax.
-
-If you need more control (optional fields, nested objects), pass a full schema instead:
-
-```bash
-struktur --input invoice.pdf \
-  --schema-json '{"type":"object","properties":{"invoice_number":{"type":"string"},"vendor":{"type":"string"},"total":{"type":"number"},"due_date":{"type":"string"}},"required":["invoice_number","vendor","total","due_date"],"additionalProperties":false}' \
-  --model openai/gpt-4o-mini
-```
-
-Notice that `total` is a number, not a string — Struktur enforced the schema.
 
 </Step>
 
@@ -111,18 +121,16 @@ Notice that `total` is a number, not a string — Struktur enforced the schema.
 
 ## What happened?
 
-For the text example, stdin input was loaded as an artifact, the LLM generated output, and it was validated against your schema. The `simple` strategy handled this in a single LLM call.
-
-For the PDF example, an extra step happened first: the built-in PDF parser extracted text (and optionally images) from the file and converted it into an artifact, then extraction proceeded as normal. Add `--images` to include embedded images, or `--screenshots` to render page screenshots.
-
-To understand what happened inside, read [The Extraction Pipeline](/docs/explanation/pipeline).
+1. `parse` turned the raw Markdown string into a typed AST.
+2. Your `parse` generator consumed that AST step by step using combinators.
+3. `doc.consume(splitByCombinator(heading(2)), generator)` split the document into H2-delimited chunks and ran your generator on each one.
+4. The final `return` value was validated against your Zod schema.
 
 ## Where to go next
 
 | Goal | Link |
 |------|------|
-| Keep learning | [The Extraction Pipeline](/docs/explanation/pipeline) |
-| Solve a real problem | [Extract Invoice Data](/docs/examples/extract-invoice) |
-| Look up all CLI flags | [CLI Reference](/docs/cli/extract) |
-| Use it in TypeScript | [TypeScript SDK](/docs/sdk/installation) |
-| Understand file parsing | [Document Parsing](/docs/explanation/document-parsing) |
+| Understand how it works | [Format SDK](/docs/explanation/template-system) |
+| Learn all combinators | [Parse Combinators](/docs/template/parse-combinators) |
+| Look up core functions | [AST SDK](/docs/core) |
+| See more examples | [Examples](/docs/examples) |

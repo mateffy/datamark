@@ -16,25 +16,25 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "Struktur",
+        title: "datamark",
       },
       {
         name: "description",
         content:
-          "All-in-one tool for structured data extraction. Turn documents into validated JSON with AI.",
+          "Parse Markdown into typed objects. Serialize them back. Declarative generator-based format system for TypeScript.",
       },
       {
         name: "google-site-verification",
-        content: "YOUR_VERIFICATION_CODE_HERE", // Replace with code from Google Search Console
+        content: "YOUR_VERIFICATION_CODE_HERE",
       },
       {
         property: "og:title",
-        content: "Struktur",
+        content: "datamark",
       },
       {
         property: "og:description",
         content:
-          "All-in-one tool for structured data extraction. Turn documents into validated JSON with AI.",
+          "Parse Markdown into typed objects. Serialize them back. Declarative generator-based format system for TypeScript.",
       },
       {
         property: "og:type",
@@ -42,11 +42,11 @@ export const Route = createRootRoute({
       },
       {
         property: "og:url",
-        content: "https://struktur.sh",
+        content: "https://datamark.md",
       },
       {
         property: "og:image",
-        content: "https://struktur.sh/og.webp",
+        content: "https://datamark.md/og.webp",
       },
       {
         name: "twitter:card",
@@ -54,19 +54,19 @@ export const Route = createRootRoute({
       },
       {
         name: "twitter:title",
-        content: "Struktur",
+        content: "datamark",
       },
       {
         name: "twitter:description",
         content:
-          "All-in-one tool for structured data extraction. Turn documents into validated JSON with AI.",
+          "Parse Markdown into typed objects. Serialize them back. Declarative generator-based format system for TypeScript.",
       },
       {
         name: "twitter:image",
-        content: "https://struktur.sh/og.webp",
+        content: "https://datamark.md/og.webp",
       },
     ],
-    links: [{ rel: "icon", type: "image/png", href: "/struktur-icon.png" }],
+    links: [{ rel: "icon", type: "image/png", href: "/datamark-icon.png" }],
   }),
   component: RootComponent,
 });
@@ -83,9 +83,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const softwareSchema = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "Struktur",
+    name: "datamark",
     description:
-      "All-in-one tool for structured data extraction. Turn documents into validated JSON with AI.",
+      "Parse Markdown into typed objects. Serialize them back. Declarative generator-based format system for TypeScript.",
     applicationCategory: "DeveloperApplication",
     operatingSystem: "Any",
     offers: {
@@ -98,7 +98,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       name: "Lukas Mateffy",
       url: "https://mateffy.org",
     },
-    codeRepository: "https://github.com/mateffy/struktur",
+    codeRepository: "https://github.com/mateffy/datamark",
     programmingLanguage: ["TypeScript", "JavaScript"],
     softwareRequirements: "Node.js, Bun, or Deno runtime",
   };
@@ -106,24 +106,24 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Struktur",
-    url: "https://struktur.sh",
-    logo: "https://struktur.sh/struktur-icon.png",
+    name: "datamark",
+    url: "https://datamark.md",
+    logo: "https://datamark.md/datamark-icon.png",
     founder: {
       "@type": "Person",
       name: "Lukas Mateffy",
       url: "https://mateffy.org",
     },
-    sameAs: ["https://github.com/mateffy/struktur"],
+    sameAs: ["https://github.com/mateffy/datamark"],
   };
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="dark">
       <head>
         <HeadContent />
         <script
           defer
-          data-domain="struktur.sh"
+          data-domain="datamark.md"
           src="https://plausible.claw.events/js/script.file-downloads.hash.outbound-links.js"
         />
         <script

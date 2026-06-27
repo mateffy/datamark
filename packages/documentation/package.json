@@ -5,7 +5,7 @@
   "sideEffects": false,
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build && mv .output/dist/client/ .output/public/ && cp ../skill/skills/struktur/SKILL.md .output/public/skill.md && cp .output/public/CNAME .output/public/docs/CNAME && mv .output/public/client/__tsr .output/public/__tsr && rmdir .output/public/client && touch .output/public/.nojekyll && rm -rf ../../docs && cp -r .output/public ../../docs",
+    "build": "vite build && mv .output/dist/client/ .output/public/ && cp .output/public/CNAME .output/public/docs/CNAME && mv .output/public/client/__tsr .output/public/__tsr && rmdir .output/public/client && touch .output/public/.nojekyll && rm -rf ../../docs && cp -r .output/public ../../docs",
     "start": "serve .output/public --config ../../serve.json",
     "preview": "vite preview",
     "types:check": "fumadocs-mdx && tsc --noEmit",
@@ -15,18 +15,28 @@
   },
   "dependencies": {
     "@orama/orama": "^3.1.18",
+    "@paper-design/shaders-react": "^0.0.76",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-separator": "^1.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-tooltip": "^1.2.8",
     "@tanstack/react-router": "1.160.2",
     "@tanstack/react-router-devtools": "1.160.2",
     "@tanstack/react-start": "1.160.2",
     "@tanstack/start-static-server-functions": "1.160.2",
+    "class-variance-authority": "^0.7.1",
+    "datamark": "workspace:*",
     "fumadocs-core": "16.6.4",
     "fumadocs-mdx": "14.2.7",
     "fumadocs-ui": "16.6.4",
     "lucide-react": "^0.570.0",
+    "ogl": "^1.0.11",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tailwind-merge": "^3.4.1",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.2",

@@ -50,26 +50,6 @@ describe("Basic emit", () => {
     expect(doc.children[0].type).toBe("heading");
   });
 
-  test("toDocument title extracted from frontmatter", () => {
-    let doc: any = null;
-    const fn = emit(function* (d, data) {
-      yield* d.emitFrontmatter({ title: "My Title" });
-      doc = d.toDocument();
-    });
-    fn(null);
-    expect(doc.title).toBe("My Title");
-  });
-
-  test("toDocument title is null without frontmatter title", () => {
-    let doc: any = null;
-    const fn = emit(function* (d, data) {
-      yield* d.emitFrontmatter({ id: "1" });
-      doc = d.toDocument();
-    });
-    fn(null);
-    expect(doc.title).toBeNull();
-  });
-
   test('heading(1, "Title") produces correct markdown', () => {
     const fn = emit(function* (doc, data) {
       yield* heading(1, "Title");
@@ -198,7 +178,6 @@ describe("Basic emit", () => {
     });
     const md = fn({ title: "Hello", body: "World" });
     const parsed = parseDocument(md);
-    expect(parsed.title).toBe("Hello");
     const nonSpace = parsed.children.filter((n: any) => n.type !== "space");
     expect(nonSpace).toHaveLength(2);
     expect(nonSpace[0].type).toBe("heading");

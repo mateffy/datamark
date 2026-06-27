@@ -6,7 +6,7 @@ export const Route = createFileRoute("/llms.txt")({
     handlers: {
       GET: async () => {
         const lines: string[] = [];
-        lines.push("# Documentation");
+        lines.push("# datamark Documentation");
         lines.push("");
         for (const page of source.getPages()) {
           lines.push(`- [${page.data.title}](${page.url}): ${page.data.description}`);
