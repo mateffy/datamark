@@ -1,10 +1,11 @@
-<center>
+<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./packages/documentation/public/datamark-logo-light.svg">
     <img alt="OpenStorage Logo" src="./packages/documentation/public/datamark-logo.svg" align="center" width="275">
   </picture>
-</center>
+</p>
 
+<br/>
 <br/>
 
 # `datamark` – Use Markdown as a Data Format
