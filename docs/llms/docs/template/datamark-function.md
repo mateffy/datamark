@@ -2,88 +2,104 @@
 
 import { Callout } from 'fumadocs-ui/components/callout';
 
-`datamark(config)` creates a reusable `Format<T>` that can parse Markdown into typed objects and serialize them back.
+`datamark()` creates a reusable format that parses Markdown into typed objects and optionally serializes them back. It is the single entry point to the Format SDK.
 
 Signature [#signature]
 
 ```typescript
-function datamark<T>(config: FormatConfig<T>): Format<T>;
+function datamark<T = unknown, F = Record<string, unknown>>(
+  config: FormatConfig<T, F>
+): Format<T>;
 ```
 
-FormatConfig [#formatconfig]
+* `T` — the output type of your format. Inferred from `schema` if provided, otherwise from `parse`'s return type.
+* `F` — the frontmatter type. Inferred from `frontmatterSchema` if provided, otherwise defaults to `Record<string, unknown>`.
 
-| Property      | Type                                       | Required | Description                       |
-| ------------- | ------------------------------------------ | -------- | --------------------------------- |
-| `schema`      | `StandardSchemaV1`                         | No       | Validates parsed results          |
-| `description` | `string`                                   | No       | Human-readable format description |
-| `examples`    | `Array<string \| FormatExample>`           | No       | Examples for docs and testing     |
-| `parse`       | `(doc: ParseContext) => Generator`         | **Yes**  | Generator that consumes the AST   |
-| `stringify`   | `(doc: EmitContext, data: T) => Generator` | No       | Generator that emits nodes        |
-
-Format [#format]
-
-| Method                   | Returns         | Description                                 |
-| ------------------------ | --------------- | ------------------------------------------- |
-| `parse(content: string)` | `T`             | Parse Markdown, validate if schema provided |
-| `stringify(data: T)`     | `string`        | Serialize data back to Markdown             |
-| `trace(content: string)` | `ParseTrace<T>` | Step-by-step consumption log                |
-| `docs()`                 | `FormatDocs`    | Static documentation                        |
-| `test()`                 | `TestResult`    | Validate examples                           |
-
-Example [#example]
+Quick example [#quick-example]
 
 ```typescript
-import { datamark, heading, splitByCombinator } from "datamark";
+import { datamark } from "datamark";
+import { inlineText } from "datamark/parse";
 import * as z from "zod";
 
-const PlanFormat = datamark({
-  schema: z.object({
-    id: z.string(),
-    title: z.string(),
-    steps: z.array(z.object({
-      description: z.string(),
-      scripts: z.array(z.string()),
-    })),
-  }),
+const BasicSchema = z.object({ title: z.string() });
 
-  description: "A project plan with frontmatter, title, and step sections.",
-
-  examples: [
-    {
-      text: `---\nid: plan-001\n---\n# Roadmap\n\n## Step\n\nSetup.\n\n\`\`\`js\nnpm init\n\`\`\``,
-      data: {
-        id: "plan-001",
-        title: "Roadmap",
-        steps: [{ description: "Setup.", scripts: ["npm init"] }],
-      },
-    },
-  ],
-
-  *parse(doc) {
-    const fm = yield* doc.frontmatter();
-    const title = yield* doc.consume(heading(1));
-    const sections = yield* doc.consume(splitByCombinator(heading(2)));
-    const steps = sections.map((section) => ({
-      description: section.map((n: any) => n.value ?? "").join("\n").trim(),
-      scripts: section
-        .filter((n: any) => n.type === "code")
-        .map((n: any) => n.value),
-    }));
-    return { id: (fm as any)?.id ?? "", title: inlineText(title.children), steps };
-  },
-
-  *stringify(doc, data) {
-    yield* doc.emitFrontmatter({ id: data.id, title: data.title });
-    yield* heading(1, data.title);
-    for (const step of data.steps) {
-      yield* heading(2, "Step");
-      if (step.description) yield* markdown(step.description);
-      for (const s of step.scripts) yield* codeBlock("javascript", s);
-    }
+const BasicFormat = datamark({
+  schema: BasicSchema,
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    return { title: h1 ? inlineText(h1.heading.children) : "" };
   },
 });
 ```
 
+```typescript
+const result = BasicFormat.parse("# Hello\n\nBody");
+// result is typed as { title: string }
+```
+
+FormatConfig [#formatconfig]
+
+| Property            | Type                                     | Required | Description                                                                                                             |
+| ------------------- | ---------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `parse`             | `(doc: DocumentWithFrontmatter<F>) => T` | ✅        | Turns a parsed Markdown document into your typed data. `doc.frontmatter` is typed when `frontmatterSchema` is provided. |
+| `stringify`         | `(data: T) => string`                    | —        | Turns typed data back into a Markdown string.                                                                           |
+| `schema`            | `StandardSchemaV1<any, T>`               | —        | Validates parsed output. `T` is inferred from the schema's output type.                                                 |
+| `frontmatterSchema` | `StandardSchemaV1<any, F>`               | —        | Validates frontmatter before `parse` runs. `F` is inferred from the schema's output type.                               |
+| `description`       | `string`                                 | —        | Human-readable description for docs.                                                                                    |
+| `examples`          | `FormatExample[]`                        | —        | Inline examples for testing and documentation.                                                                          |
+| `docs`              | `FormatDocs`                             | —        | Extra metadata for generated docs.                                                                                      |
+
 <Callout type="info">
-  When `stringify` is omitted, calling `stringify()` on the format throws a clear error telling you to provide one.
+  When `frontmatterSchema` is configured, `parse()` validates frontmatter **before** your `parse` function runs. If validation fails, `parse()` throws `ValidationError` immediately — your `parse` function never sees bad frontmatter.
 </Callout>
+
+Format methods [#format-methods]
+
+parse(content: string): T [#parsecontent-string-t]
+
+Parses a Markdown string, validates frontmatter (if `frontmatterSchema`), runs your `parse` function, and validates the output (if `schema`). Returns typed data.
+
+stringify(data: T): string [#stringifydata-t-string]
+
+Serializes data back to Markdown using your `stringify` function.
+
+<Callout type="warning">
+  Throws at runtime if `stringify` was not configured.
+</Callout>
+
+test(): TestResult [#test-testresult]
+
+Runs all configured examples through `parse`, frontmatter validation, and schema validation. Returns `{ passed: boolean, failures: Array<{ exampleIndex, example, error }> }`.
+
+docs(): FormatDocs [#docs-formatdocs]
+
+Returns metadata: description, examples, and schema output type.
+
+Types reference [#types-reference]
+
+FormatExample [#formatexample]
+
+```typescript
+interface FormatExample {
+  text: string;
+  data?: unknown;
+}
+```
+
+String examples test parseability only. Object examples with `data` are compared for exact equality.
+
+DocumentWithFrontmatter<F> [#documentwithfrontmatterf]
+
+A `Document` where `frontmatter` is typed as `F | null` instead of `Record<string, unknown> | null`. This type is automatically applied to the `doc` parameter in your `parse` function when `frontmatterSchema` is configured.
+
+FormatDocs [#formatdocs]
+
+```typescript
+interface FormatDocs {
+  description?: string;
+  examples?: Array<string | FormatExample>;
+  structure?: unknown;
+  schema?: unknown;
+}
+```

@@ -4,13 +4,41 @@ title: Format SDK
 
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
-Reference for the generator-based format system.
+The Format SDK is the high-level layer of datamark. It turns Markdown documents into typed objects — and back again — through reusable, self-testing format definitions.
+
+A **format** is a typed contract: you define a schema, a `parse` function that walks the AST using the [Parse SDK](/docs/parse), and optionally a `stringify` function for round-trip serialization using builder primitives from `datamark/stringify`. Add inline `examples` and your format becomes self-documenting and self-testing.
 
 <Cards>
-  <Card title="datamark()" description="The format factory and FormatConfig options" href="/docs/template/datamark-function" />
-  <Card title="Parse Combinators" description="heading, splitBy, many, optional, until, rest" href="/docs/template/parse-combinators" />
-  <Card title="Emit Combinators" description="heading, codeBlock, markdown, todoItem, hr" href="/docs/template/emit-combinators" />
-  <Card title="trace()" description="Step-by-step debugging of format consumption" href="/docs/template/trace" />
-  <Card title="docs()" description="Auto-generated format documentation" href="/docs/template/docs" />
-  <Card title="test()" description="Example-driven format validation" href="/docs/template/test" />
+  <Card title="datamark()" description="The format factory — typed config, parse, stringify, test, docs" href="/docs/template/datamark-function" />
+  <Card title="Frontmatter" description="Reading, validating, and typing frontmatter with schemas" href="/docs/template/frontmatter" />
+  <Card title="Parsing Patterns" description="Navigate the AST, extract data, map Markdown to objects" href="/docs/template/parsing" />
+  <Card title="Stringify" description="Serialize back to Markdown with builder primitives from datamark/stringify" href="/docs/template/stringify" />
+  <Card title="Testing" description="Inline examples, self-testing formats, and CI integration" href="/docs/template/testing" />
 </Cards>
+
+## What the Format SDK provides
+
+| Capability | Description |
+|------------|-------------|
+| **Typed frontmatter** | `frontmatterSchema` validates and types `doc.frontmatter` before your `parse` function runs |
+| **Output validation** | `schema` validates the return value of `parse()` automatically |
+| **Round-trip serialization** | `stringify` turns typed data back into Markdown via `datamark/stringify` |
+| **Self-testing** | `examples` are validated by `.test()` — add them once, test forever |
+| **Builder primitives** | `heading()`, `list()`, `codeBlock()`, `frontmatter()` and more from `datamark/stringify` |
+| **Standard Schema support** | Works with Zod, Valibot, ArkType, TypeBox, and any Standard Schema v1 validator |
+
+## How the layers fit together
+
+```
+datamark/stringify  →  heading(), list(), codeBlock(), frontmatter() …
+        ↑
+   Format SDK      →  datamark({ schema, parse, stringify, examples })
+        ↑
+    Parse SDK      →  parse(), findAll(), textContent(), isCodeBlock() …
+        ↑
+    marked + yaml  →  Markdown lexer + YAML parser
+```
+
+The Format SDK is built on top of the Parse SDK. Every `parse` function receives a `Document` from the Parse SDK and uses its utilities (`findAll`, `textContent`, `isCodeBlock`, etc.) to extract data. Every `stringify` function uses `datamark/stringify` primitives to reconstruct Markdown cleanly.
+
+For raw AST manipulation without schemas or serialization, use the [Parse SDK](/docs/parse) directly.

@@ -1,51 +1,16 @@
 ---
 title: Writing a Format
-description: A step-by-step guide to defining your first datamark format.
+description: A step-by-step guide to building a custom Markdown format with datamark.
+date: 2026-05-30
 ---
 
-import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-This guide walks through creating a format for a simple project plan document.
+A "format" in datamark is a typed contract between a Markdown document and a data structure. You define how to parse the document into an object and optionally how to serialize it back.
 
-<Steps>
+## Step 1: Define your schema
 
-<Step>
-
-### Analyze the document structure
-
-Here's the Markdown we want to parse:
-
-```markdown
----
-id: plan-001
----
-# Q3 Roadmap
-
-## Step
-
-Set up the project.
-
-```javascript
-npm init -y
-```
-
-## Step
-
-Implement the core.
-```
-
-We can see:
-- YAML frontmatter with an `id`
-- An H1 title
-- Sections separated by H2 headings
-- Each section has a description (paragraphs) and optional code blocks
-
-</Step>
-
-<Step>
-
-### Define the schema
+Start with what you want to extract:
 
 ```typescript
 import * as z from "zod";
@@ -60,97 +25,92 @@ const PlanSchema = z.object({
 });
 ```
 
-</Step>
+## Step 2: Write the parse function
 
-<Step>
-
-### Write the parse generator
+The `parse` function receives a `Document` and returns your data type. Use the section tree and utility functions to extract values:
 
 ```typescript
-*parse(doc) {
-  // 1. Extract frontmatter
-  const fm = yield* doc.frontmatter();
+import { datamark } from "datamark";
+import { inlineText, textContent, findAll, isCodeBlock } from "datamark/parse";
 
-  // 2. Extract the H1 title
-  const title = yield* doc.consume(heading(1));
+const PlanFormat = datamark({
+  frontmatterSchema: z.object({ id: z.string() }),
+  schema: PlanSchema,
 
-  // 3. Split remaining nodes by H2 headings
-  const sections = yield* doc.consume(splitByCombinator(heading(2)));
+  parse(doc) {
+    const id = doc.frontmatter.id; // typed as string
+    const titleSection = doc.root.children.find(n => n.type === "section") as any;
+    const title = titleSection ? inlineText(titleSection.heading.children) : "";
 
-  // 4. Map each section to a step object
-  const steps = sections.map((section) => {
-    const scripts = section
-      .filter((n) => n.type === "code")
-      .map((n: any) => n.value);
-    const other = section.filter((n) => n.type !== "code");
-    const description = other
-      .map((n: any) => ("value" in n ? n.value : ""))
-      .join("\n")
-      .trim();
-    return { description, scripts };
-  });
+    const steps = titleSection
+      ? (titleSection.children.filter(n => n.type === "section") as any[]).map(section => {
+          const scripts = findAll(section, n => isCodeBlock(n, "javascript"))
+            .map((n: any) => n.value);
+          const description = textContent(section).trim();
+          return { description, scripts };
+        })
+      : [];
 
-  // 5. Return the parsed object
-  return {
-    id: (fm as any)?.id ?? "",
-    title: inlineText(title.children),
-    steps,
-  };
-}
+    return { id, title, steps };
+  },
+});
 ```
 
-<Callout type="info">
-  `splitByCombinator(heading(2))` splits the remaining nodes into groups separated by H2 headings. The H2 nodes themselves are discarded.
-</Callout>
+## Step 3: Add stringify
 
-</Step>
-
-<Step>
-
-### Write the stringify generator
+If you want roundtrip support, provide a `stringify` function:
 
 ```typescript
-*stringify(doc, data) {
-  yield* doc.emitFrontmatter({ id: data.id, title: data.title });
-  yield* heading(1, data.title);
+stringify(data) {
+  let md = `---\nid: ${data.id}\n---\n\n# ${data.title}\n\n`;
   for (const step of data.steps) {
-    yield* heading(2, "Step");
-    if (step.description) yield* markdown(step.description);
-    for (const s of step.scripts) yield* codeBlock("javascript", s);
+    md += `## Step\n\n${step.description}\n\n`;
+    for (const script of step.scripts) {
+      md += `\`\`\`javascript\n${script}\n\`\`\`\n\n`;
+    }
   }
+  return md;
 }
 ```
 
-</Step>
+## Step 4: Test with examples
 
-<Step>
-
-### Add examples and test
+Add examples to validate your format:
 
 ```typescript
 const PlanFormat = datamark({
   schema: PlanSchema,
   examples: [
     {
-      text: `---\nid: plan-001\n---\n# Roadmap\n\n## Step\n\nSetup.\n\n\`\`\`js\nnpm init\n\`\`\``,
-      data: { id: "plan-001", title: "Roadmap", steps: [{ description: "Setup.", scripts: ["npm init"] }] },
+      text: `---\nid: plan-001\n---\n# Q3 Roadmap\n\n## Step\n\nSet up the project.`,
+      data: {
+        id: "plan-001",
+        title: "Q3 Roadmap",
+        steps: [{ description: "Set up the project.", scripts: [] }],
+      },
     },
   ],
-  parse: planParse,
-  stringify: planStringify,
+  // parse and stringify...
 });
 
-// Validate
+// Run tests
 const result = PlanFormat.test();
-console.assert(result.passed);
+if (!result.passed) {
+  console.log(result.failures);
+}
 ```
 
-</Step>
+## Key tools
 
-</Steps>
+| Function | Use for |
+|----------|---------|
+| `doc.root.children` | Top-level sections and content |
+| `inlineText()` | Extract heading/paragraph text |
+| `textContent()` | Extract all text from a section |
+| `findAll()` | Find all matching nodes recursively |
+| `isCodeBlock()`, `isHeading()` | Filter by node type |
+| `sectionsAtDepth()` | Find sections at a specific heading depth |
 
-## Where to go next
-
-- Learn more combinators in [Parse Combinators](/docs/template/parse-combinators)
-- Understand [validation](/docs/explanation/validation) with Zod and friends
-- See [more examples](/docs/examples) for real-world patterns
+<Callout type="info">
+  Formats are plain functions — no generators, no combinators, no special syntax. Just TypeScript and the AST.
+</Callout>

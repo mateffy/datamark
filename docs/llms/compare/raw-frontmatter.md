@@ -23,21 +23,21 @@ import { parse } from "datamark";
 
 const doc = parse(content);
 // doc.frontmatter is parsed YAML
-// doc.children is a structured AST
+// doc.root is a structured section tree
 ```
 
 For typed, validated data, use the Format SDK:
 
 ```typescript
-import { datamark, heading, inlineText } from "datamark";
+import { datamark, inlineText } from "datamark";
 import * as z from "zod";
 
 const MyFormat = datamark({
   schema: z.object({ title: z.string() }),
-  *parse(doc) {
-    const fm = yield* doc.frontmatter();
-    const h1 = yield* doc.consume(heading(1));
-    return { title: (fm as any)?.title ?? inlineText(h1.children) };
+  parse(doc) {
+    const h1 = doc.root.children.find(n => n.type === "section") as any;
+    const title = h1 ? inlineText(h1.heading.children) : "";
+    return { title };
   },
 });
 ```

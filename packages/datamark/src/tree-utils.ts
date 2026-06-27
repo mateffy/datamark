@@ -1,22 +1,33 @@
-/**
- * Tree utility functions for working with datamark AST nodes.
- */
-
-import type { BlockNode, InlineNode, HeadingNode, CodeNode } from "./tree";
+import type {
+  Node,
+  ParentNode,
+  SectionNode,
+  BlockNode,
+  InlineNode,
+  HeadingNode,
+  CodeNode,
+  ListNode,
+  ListItemNode,
+  TableNode,
+  TableRowNode,
+  TableCellNode,
+  BlockquoteNode,
+} from "./tree";
+import { isParentNode, isSection, isBlockNode, isInlineNode } from "./tree";
 
 // ============================================================================
 // Node type guards
 // ============================================================================
 
-export function isHeading(node: BlockNode, depth?: number): node is HeadingNode {
+export function isHeading(node: Node, depth?: number): node is HeadingNode {
   if (node.type !== "heading") return false;
-  if (depth !== undefined) return node.depth === depth;
+  if (depth !== undefined) return (node as HeadingNode).depth === depth;
   return true;
 }
 
-export function isCodeBlock(node: BlockNode, lang?: string): node is CodeNode {
+export function isCodeBlock(node: Node, lang?: string): node is CodeNode {
   if (node.type !== "code") return false;
-  if (lang !== undefined) return node.lang === lang;
+  if (lang !== undefined) return (node as CodeNode).lang === lang;
   return true;
 }
 
@@ -26,42 +37,52 @@ export interface TodoItem {
   raw: string;
 }
 
-export function isTodoItem(node: BlockNode): boolean {
+export function isTodoItem(node: Node): boolean {
   if (node.type !== "list") return false;
-  return node.items.every((item) => {
-    const first = item[0];
+  const list = node as ListNode;
+  return list.children.every((item) => {
+    const first = item.children[0];
     if (!first || first.type !== "paragraph") return false;
-    const text = inlineText(first.children);
+    const text = inlineText((first as any).children);
     return /^\[[ xX]\]\s/.test(text);
   });
 }
 
-export function extractTodoItems(nodes: BlockNode[]): TodoItem[] {
+export function extractTodoItems(node: Node | BlockNode[]): TodoItem[] {
   const items: TodoItem[] = [];
 
-  function walk(ns: BlockNode[]) {
-    for (const n of ns) {
-      if (n.type === "list") {
-        for (const item of n.items) {
-          const first = item[0];
-          if (first && first.type === "paragraph") {
-            const text = inlineText(first.children);
-            const match = text.match(/^\[([ xX])\]\s?(.*)$/);
-            if (match) {
-              items.push({
-                text: match[2]!,
-                completed: match[1]!.toLowerCase() === "x",
-                raw: text,
-              });
-            }
+  function walk(n: Node) {
+    if (n.type === "list") {
+      for (const item of (n as ListNode).children) {
+        const first = item.children[0];
+        if (first && first.type === "paragraph") {
+          const text = inlineText((first as any).children);
+          const match = text.match(/^\[([ xX])\]\s?(.*)$/);
+          if (match) {
+            items.push({
+              text: match[2]!,
+              completed: match[1]!.toLowerCase() === "x",
+              raw: text,
+            });
           }
         }
       }
-      if (n.type === "blockquote") walk(n.children);
+    }
+    if (isParentNode(n)) {
+      for (const child of n.children) {
+        walk(child);
+      }
+    }
+    if (isSection(n) && n.heading) {
+      walk(n.heading);
     }
   }
 
-  walk(nodes);
+  if (Array.isArray(node)) {
+    for (const n of node) walk(n);
+  } else {
+    walk(node);
+  }
   return items;
 }
 
@@ -69,29 +90,31 @@ export function extractTodoItems(nodes: BlockNode[]): TodoItem[] {
 // Predicates
 // ============================================================================
 
-export type NodePredicate = (node: BlockNode) => boolean;
+export type NodePredicate = (node: Node) => boolean;
 
 // ============================================================================
 // Find
 // ============================================================================
 
 /**
- * Find the first block node matching a predicate.
+ * Find the first node matching a predicate anywhere in the tree.
  */
+export function find(node: Node, predicate: NodePredicate): Node | undefined;
+export function find(nodes: Node[], predicate: NodePredicate): Node | undefined;
 export function find(
-  nodes: BlockNode[],
+  nodeOrNodes: Node | Node[],
   predicate: NodePredicate
-): BlockNode | undefined {
+): Node | undefined {
+  const nodes = Array.isArray(nodeOrNodes) ? nodeOrNodes : [nodeOrNodes];
   for (const node of nodes) {
     if (predicate(node)) return node;
-    // Search inside blockquote and list items
-    if (node.type === "blockquote") {
-      const found = find(node.children, predicate);
+    if (isSection(node) && node.heading) {
+      const found = find(node.heading, predicate);
       if (found) return found;
     }
-    if (node.type === "list") {
-      for (const item of node.items) {
-        const found = find(item, predicate);
+    if (isParentNode(node)) {
+      for (const child of node.children) {
+        const found = find(child, predicate);
         if (found) return found;
       }
     }
@@ -100,21 +123,24 @@ export function find(
 }
 
 /**
- * Find all block nodes matching a predicate (depth-first).
+ * Find all nodes matching a predicate (depth-first).
  */
+export function findAll(node: Node, predicate: NodePredicate): Node[];
+export function findAll(nodes: Node[], predicate: NodePredicate): Node[];
 export function findAll(
-  nodes: BlockNode[],
+  nodeOrNodes: Node | Node[],
   predicate: NodePredicate
-): BlockNode[] {
-  const results: BlockNode[] = [];
+): Node[] {
+  const nodes = Array.isArray(nodeOrNodes) ? nodeOrNodes : [nodeOrNodes];
+  const results: Node[] = [];
   for (const node of nodes) {
     if (predicate(node)) results.push(node);
-    if (node.type === "blockquote") {
-      results.push(...findAll(node.children, predicate));
+    if (isSection(node) && node.heading) {
+      results.push(...findAll(node.heading, predicate));
     }
-    if (node.type === "list") {
-      for (const item of node.items) {
-        results.push(...findAll(item, predicate));
+    if (isParentNode(node)) {
+      for (const child of node.children) {
+        results.push(...findAll(child, predicate));
       }
     }
   }
@@ -124,48 +150,38 @@ export function findAll(
 /**
  * Filter top-level nodes by predicate (does not recurse into containers).
  */
-export function filter(
-  nodes: BlockNode[],
-  predicate: NodePredicate
-): BlockNode[] {
+export function filter(nodes: Node[], predicate: NodePredicate): Node[] {
   return nodes.filter(predicate);
 }
 
 // ============================================================================
-// Sections — split by headings
+// Sections
 // ============================================================================
 
-export interface Section {
-  heading: HeadingNode | null;
-  children: BlockNode[];
+/**
+ * Find all child sections at a given depth under a section node.
+ */
+export function sectionsAtDepth(
+  section: SectionNode,
+  depth: number
+): SectionNode[] {
+  return findAll(section, (n) => isSection(n) && n.heading?.depth === depth) as SectionNode[];
 }
 
 /**
- * Split block nodes into sections separated by headings at a given depth.
- * Each section contains the heading and all nodes until the next heading
- * at the same or lower depth.
+ * Find all child sections whose heading text matches the given string.
  */
-export function sections(
-  nodes: BlockNode[],
-  options: { by: "heading"; level: number }
-): Section[] {
-  const result: Section[] = [];
-  let current: Section | null = null;
-
-  for (const node of nodes) {
-    if (node.type === "heading" && node.depth === options.level) {
-      if (current) result.push(current);
-      current = { heading: node, children: [] };
-    } else {
-      if (!current) {
-        current = { heading: null, children: [] };
-      }
-      current.children.push(node);
-    }
-  }
-
-  if (current) result.push(current);
-  return result;
+export function sectionsByHeading(
+  section: SectionNode,
+  text: string
+): SectionNode[] {
+  return findAll(
+    section,
+    (n) =>
+      isSection(n) &&
+      n.heading !== null &&
+      inlineText(n.heading.children) === text
+  ) as SectionNode[];
 }
 
 // ============================================================================
@@ -254,10 +270,18 @@ export function before(
 // ============================================================================
 
 /**
- * Extract all code blocks from a list of nodes (recursively).
+ * Extract all code blocks from a node or list of nodes (recursively).
  */
-export function codeBlocks(nodes: BlockNode[]): CodeNode[] {
-  return findAll(nodes, (n) => n.type === "code") as CodeNode[];
+export function codeBlocks(node: Node, options?: { lang?: string }): CodeNode[];
+export function codeBlocks(nodes: BlockNode[], options?: { lang?: string }): CodeNode[];
+export function codeBlocks(
+  nodeOrNodes: Node | BlockNode[],
+  options?: { lang?: string }
+): CodeNode[] {
+  if (Array.isArray(nodeOrNodes)) {
+    return findAll(nodeOrNodes, (n) => isCodeBlock(n, options?.lang)) as CodeNode[];
+  }
+  return findAll(nodeOrNodes, (n) => isCodeBlock(n, options?.lang)) as CodeNode[];
 }
 
 /**
@@ -290,38 +314,100 @@ export function inlineText(nodes: InlineNode[]): string {
 }
 
 /**
- * Extract plain text from block nodes (recursively, depth-first).
+ * Extract plain text from any node (recursively, depth-first).
  */
-export function textContent(nodes: BlockNode[]): string {
-  return nodes
-    .map((n) => {
-      switch (n.type) {
-        case "heading":
-        case "paragraph":
-          return inlineText(n.children);
-        case "code":
-          return n.value;
-        case "blockquote":
-          return textContent(n.children);
-        case "list":
-          return n.items
-            .map((item) => textContent(item))
-            .join("\n");
-        case "table":
-          return n.rows
-            .map((row) =>
-              row.map((cell) => inlineText(cell.children)).join(" ")
-            )
-            .join("\n");
-        case "html":
-          return n.value;
-        case "hr":
-        case "space":
-          return "";
-      }
-    })
-    .filter(Boolean)
-    .join("\n");
+export function textContent(node: Node): string;
+export function textContent(nodes: BlockNode[]): string;
+export function textContent(nodeOrNodes: Node | BlockNode[]): string {
+  if (Array.isArray(nodeOrNodes)) {
+    return nodeOrNodes
+      .map((n) => textContent(n))
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  const node = nodeOrNodes;
+
+  if (isInlineNode(node)) {
+    switch (node.type) {
+      case "text":
+      case "escape":
+      case "codespan":
+      case "html":
+        return node.value;
+      case "image":
+        return node.alt;
+      case "br":
+        return "\n";
+      default:
+        return inlineText((node as ParentNode).children as InlineNode[]);
+    }
+  }
+
+  if (isBlockNode(node)) {
+    switch (node.type) {
+      case "heading":
+      case "paragraph":
+        return inlineText(node.children);
+      case "code":
+        return node.value;
+      case "blockquote":
+        return textContent(node.children);
+      case "list":
+        return (node as ListNode).children
+          .map((item) => textContent(item.children))
+          .join("\n");
+      case "table":
+        return (node as TableNode).children
+          .map((row) =>
+            (row as TableRowNode).children
+              .map((cell) => inlineText((cell as TableCellNode).children))
+              .join(" ")
+          )
+          .join("\n");
+      case "html":
+        return node.value;
+      case "hr":
+      case "space":
+        return "";
+    }
+  }
+
+  if (isSection(node)) {
+    const parts: string[] = [];
+    if (node.heading) {
+      parts.push(textContent(node.heading));
+    }
+    for (const child of node.children) {
+      const t = textContent(child);
+      if (t) parts.push(t);
+    }
+    return parts.join("\n");
+  }
+
+  return "";
+}
+
+// ============================================================================
+// Flatten
+// ============================================================================
+
+/**
+ * Recursively flatten a section tree back into a flat array of block nodes.
+ */
+export function flatten(section: SectionNode): BlockNode[] {
+  const blocks: BlockNode[] = [];
+  if (section.heading) {
+    blocks.push(section.heading);
+  }
+  for (const child of section.children) {
+    if (isSection(child)) {
+      blocks.push(...flatten(child as SectionNode));
+    } else if (isBlockNode(child)) {
+      blocks.push(child as BlockNode);
+    }
+  }
+  return blocks;
 }
 
 // ============================================================================
@@ -384,10 +470,10 @@ function blockToMarkdown(node: BlockNode): string {
     case "hr":
       return "---";
     case "list": {
-      return node.items
+      return node.children
         .map((item, i) => {
           const prefix = node.ordered ? `${(node.start ?? 1) + i}. ` : "- ";
-          const content = item
+          const content = item.children
             .map((child) => blockToMarkdown(child))
             .join("\n");
           return (
@@ -403,18 +489,22 @@ function blockToMarkdown(node: BlockNode): string {
     case "html":
       return node.value;
     case "table": {
-      const headerRow = `| ${node.header.map((c) => inlineToMarkdown(c.children)).join(" | ")} |`;
+      const headerRow = node.children[0];
+      const bodyRows = node.children.slice(1);
+      const headerMd = headerRow
+        ? `| ${headerRow.children.map((c) => inlineToMarkdown((c as TableCellNode).children)).join(" | ")} |`
+        : "";
       const alignRow = `|${node.align.map((a) => {
         if (a === "left") return ":---";
         if (a === "center") return ":---:";
         if (a === "right") return "---:";
         return "---";
       }).join("|")}|`;
-      const bodyRows = node.rows.map(
+      const bodyMd = bodyRows.map(
         (row) =>
-          `| ${row.map((c) => inlineToMarkdown(c.children)).join(" | ")} |`
+          `| ${row.children.map((c) => inlineToMarkdown((c as TableCellNode).children)).join(" | ")} |`
       );
-      return [headerRow, alignRow, ...bodyRows].join("\n");
+      return [headerMd, alignRow, ...bodyMd].join("\n");
     }
     case "space":
       return "";
@@ -422,10 +512,25 @@ function blockToMarkdown(node: BlockNode): string {
 }
 
 /**
- * Convert block nodes back into a markdown string.
- * Joins nodes with double newlines and trims surrounding whitespace.
+ * Convert block nodes or a single node back into a markdown string.
+ *
+ * For a SectionNode, it is first flattened. Joins nodes with double
+ * newlines and trims surrounding whitespace.
  */
-export function toMarkdown(nodes: BlockNode[]): string {
+export function toMarkdown(node: Node): string;
+export function toMarkdown(nodes: BlockNode[]): string;
+export function toMarkdown(nodeOrNodes: Node | BlockNode[]): string {
+  let nodes: BlockNode[];
+  if (Array.isArray(nodeOrNodes)) {
+    nodes = nodeOrNodes;
+  } else if (isSection(nodeOrNodes)) {
+    nodes = flatten(nodeOrNodes as SectionNode);
+  } else if (isBlockNode(nodeOrNodes)) {
+    nodes = [nodeOrNodes as BlockNode];
+  } else {
+    return "";
+  }
+
   return nodes
     .map((n) => blockToMarkdown(n))
     .filter((s) => s !== "")

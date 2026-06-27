@@ -1,0 +1,26 @@
+---
+title: Recipe Format
+description: Parse a cooking recipe with typed frontmatter metadata, ingredients, and steps.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example parses a recipe with typed frontmatter metadata (prep time, cook time, servings), an ingredients list, and step-by-step instructions organized in subsections. It uses AST utilities (`inlineText`, `textContent`) for extraction and stringify primitives (`frontmatter`, `heading`, `list`, `paragraph`) for reconstruction.
+
+<Example name="recipe" />
+
+```typescript
+const result = RecipeFormat.parse(recipeMarkdown);
+console.log(result.title);        // "Pancakes"
+console.log(result.servings);     // 4
+console.log(result.ingredients);  // ["2 cups flour", ...]
+console.log(result.steps.length); // 3
+```
+
+## Key concepts
+
+- **`frontmatterSchema`** validates frontmatter before `parse` runs — bad YAML or missing fields throw `ValidationError` immediately
+- **`frontmatter()`** from `datamark/stringify` serializes the metadata back to YAML with proper escaping
+- **Section lookup by heading text** — `subSections.find(s => inlineText(s.heading.children).toLowerCase() === "ingredients")`
+- **Nested subsections** — the "Steps" section contains `###` subsections, each parsed as a step
+- **Heading removal from body** — `textContent(stepSection)` includes the heading, so we strip it with a regex

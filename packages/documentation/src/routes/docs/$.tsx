@@ -32,7 +32,7 @@ export const Route = createFileRoute("/docs/$")({
         ? `${slugs.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ")} - datamark`
         : "Documentation - datamark";
     const description =
-      "datamark documentation: parse Markdown into typed objects. Declarative generator-based format system for TypeScript.";
+      "datamark documentation: parse Markdown into typed objects. Lightweight format system for TypeScript.";
 
     return {
       meta: [

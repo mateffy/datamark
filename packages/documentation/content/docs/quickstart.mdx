@@ -32,50 +32,13 @@ npm install zod
 
 Create a file that describes how your Markdown is structured:
 
+<Example name="plan" />
+
 ```typescript
-import { datamark, heading, markdown, codeBlock, todoItem, inlineText, textContent, extractTodoItems, splitByCombinator } from "datamark";
-import * as z from "zod";
-
-const PlanFormat = datamark({
-  schema: z.object({
-    id: z.string(),
-    title: z.string(),
-    steps: z.array(z.object({
-      title: z.string(),
-      description: z.string(),
-      scripts: z.array(z.string()),
-    })),
-  }),
-
-  *parse(doc) {
-    const fm = yield* doc.frontmatter();
-    const titleNode = yield* doc.consume(heading(1));
-    const steps = yield* doc.consume(splitByCombinator(heading(2)), function* (subdoc) {
-      const h2 = yield* subdoc.consume(heading(2));
-      const body = yield* subdoc.consume(rest());
-      const scripts = body
-        .filter((n) => n.type === "code")
-        .map((n: any) => n.value);
-      return {
-        title: inlineText(h2.children),
-        description: textContent(body),
-        scripts,
-      };
-    });
-
-    return { id: (fm as any)?.id ?? "", title: inlineText(titleNode.children), steps };
-  },
-
-  *stringify(doc, data) {
-    yield* doc.emitFrontmatter({ id: data.id, title: data.title });
-    yield* heading(1, data.title);
-    for (const step of data.steps) {
-      yield* heading(2, "Step");
-      if (step.description) yield* markdown(step.description);
-      for (const s of step.scripts) yield* codeBlock("javascript", s);
-    }
-  },
-});
+const result = PlanFormat.parse(planMarkdown);
+console.log(result.id);     // "plan-001"
+console.log(result.title);  // "Q3 Roadmap"
+console.log(result.steps[0].description); // "Set up the project."
 ```
 
 </Step>
@@ -85,6 +48,8 @@ const PlanFormat = datamark({
 ### Parse a document
 
 ```typescript
+import { PlanFormat } from "./plan-format";
+
 const markdown = `---
 id: plan-001
 ---
@@ -109,7 +74,7 @@ console.log(result);
 //   id: "plan-001",
 //   title: "Q3 Roadmap",
 //   steps: [
-//     { title: "Set up project scaffolding", description: "Install dependencies.\n\n```javascript\nnpm init -y\n```", scripts: ["npm init -y"] },
+//     { title: "Set up project scaffolding", description: "Install dependencies.", scripts: ["npm init -y"] },
 //     { title: "Implement core features", description: "Build the main functionality.", scripts: [] },
 //   ],
 // }
@@ -121,16 +86,16 @@ console.log(result);
 
 ## What happened?
 
-1. `parse` turned the raw Markdown string into a typed AST.
-2. Your `parse` generator consumed that AST step by step using combinators.
-3. `doc.consume(splitByCombinator(heading(2)), generator)` split the document into H2-delimited chunks and ran your generator on each one.
-4. The final `return` value was validated against your Zod schema.
+1. `parse` turned the raw Markdown string into a typed AST with a section tree.
+2. Your `parse` function traversed the AST using utility functions like `findAll`, `textContent`, and `isCodeBlock`.
+3. The section tree made it easy to iterate over H2-delimited sections.
+4. The final return value was validated against your Zod schema.
 
 ## Where to go next
 
 | Goal | Link |
 |------|------|
-| Understand how it works | [Format SDK](/docs/explanation/template-system) |
-| Learn all combinators | [Parse Combinators](/docs/template/parse-combinators) |
-| Look up core functions | [AST SDK](/docs/core) |
+| Understand how it works | [The AST](/docs/explanation/ast) |
+| Learn about the format system | [Format SDK](/docs/template/datamark-function) |
+| Look up core functions | [Parse SDK](/docs/parse) |
 | See more examples | [Examples](/docs/examples) |

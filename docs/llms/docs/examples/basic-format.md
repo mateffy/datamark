@@ -1,82 +1,50 @@
 
 
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example shows a minimal format that extracts a title and body from a Markdown document. It uses the Parse SDK (`inlineText`, `textContent`) for parsing and the stringify subpath (`heading`, `paragraph`) for serialization.
+
 ```typescript
-import { datamark, heading, splitByCombinator, codeBlock, markdown, inlineText, textContent } from "datamark";
+import { datamark } from "datamark";
+import { inlineText, textContent } from "datamark/parse";
+import { heading, paragraph } from "datamark/stringify";
 import * as z from "zod";
 
-const PlanFormat = datamark({
-  schema: z.object({
-    id: z.string(),
-    title: z.string(),
-    steps: z.array(z.object({
-      description: z.string(),
-      scripts: z.array(z.string()),
-    })),
-  }),
+const BasicSchema = z.object({
+  title: z.string(),
+  body: z.string(),
+});
 
-  *parse(doc) {
-    const fm = yield* doc.frontmatter();
-    const title = yield* doc.consume(heading(1));
-    const sections = yield* doc.consume(splitByCombinator(heading(2)));
+const BasicFormat = datamark({
+  schema: BasicSchema,
 
-    const steps = sections.map((section) => {
-      const scripts = section
-        .filter((n) => n.type === "code")
-        .map((n: any) => n.value);
-      const other = section.filter((n) => n.type !== "code");
-      const description = other
-        .map((n: any) => ("value" in n ? n.value : ""))
-        .join("\n")
-        .trim();
-      return { description, scripts };
-    });
-
-    return { id: (fm as any)?.id ?? "", title: inlineText(title.children), steps };
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const title = h1 ? inlineText(h1.heading.children) : "";
+    // Get body from the first paragraph inside the top section, excluding the heading
+    const firstPara = h1?.children?.find((n: any) => n.type === "paragraph");
+    const body = firstPara ? inlineText(firstPara.children) : "";
+    return { title, body };
   },
 
-  *stringify(doc, data) {
-    yield* doc.emitFrontmatter({ id: data.id, title: data.title });
-    yield* heading(1, data.title);
-    for (const step of data.steps) {
-      yield* heading(2, "Step");
-      if (step.description) yield* markdown(step.description);
-      for (const s of step.scripts) yield* codeBlock("javascript", s);
-    }
+  stringify(data) {
+    return heading(data.title) + "\n\n" + paragraph(data.body) + "\n";
   },
 });
+
+const basicMarkdown = "# Hello\n\nThis is the body.";
 ```
 
-Example input [#example-input]
+```typescript
+const result = BasicFormat.parse("# Hello\n\nThis is the body.");
+console.log(result.title); // "Hello"
+console.log(result.body); // "This is the body."
 
-````markdown
----
-id: plan-001
----
-# Q3 Roadmap
+const markdown = BasicFormat.stringify(result);
+```
 
-## Step
+Key concepts [#key-concepts]
 
-Set up the project.
-
-```javascript
-npm init -y
-````
-
-Step [#step]
-
-Implement the core.
-
-````
-
-### Example output
-
-```json
-{
-  "id": "plan-001",
-  "title": "Q3 Roadmap",
-  "steps": [
-    { "description": "Set up the project.", "scripts": ["npm init -y"] },
-    { "description": "Implement the core.", "scripts": [] }
-  ]
-}
-````
+* **`inlineText()`** and **`textContent()`** from the Parse SDK extract text from the parsed tree
+* **`heading()`** and **`paragraph()`** from `datamark/stringify` build Markdown strings — no manual interpolation
+* The Format SDK wraps AST traversal + serialization into a typed, reusable object

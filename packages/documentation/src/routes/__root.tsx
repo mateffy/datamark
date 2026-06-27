@@ -21,7 +21,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "Parse Markdown into typed objects. Serialize them back. Declarative generator-based format system for TypeScript.",
+          "Parse Markdown into typed objects. Serialize them back. Lightweight format system for TypeScript.",
       },
       {
         name: "google-site-verification",
@@ -34,7 +34,7 @@ export const Route = createRootRoute({
       {
         property: "og:description",
         content:
-          "Parse Markdown into typed objects. Serialize them back. Declarative generator-based format system for TypeScript.",
+          "Parse Markdown into typed objects. Serialize them back. Lightweight format system for TypeScript.",
       },
       {
         property: "og:type",
@@ -59,14 +59,14 @@ export const Route = createRootRoute({
       {
         name: "twitter:description",
         content:
-          "Parse Markdown into typed objects. Serialize them back. Declarative generator-based format system for TypeScript.",
+          "Parse Markdown into typed objects. Serialize them back. Lightweight format system for TypeScript.",
       },
       {
         name: "twitter:image",
         content: "https://datamark.md/og.webp",
       },
     ],
-    links: [{ rel: "icon", type: "image/png", href: "/datamark-icon.png" }],
+    links: [{ rel: "icon", type: "image/svg+xml", href: "/datamark-icon.svg" }],
   }),
   component: RootComponent,
 });
@@ -85,7 +85,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     "@type": "SoftwareApplication",
     name: "datamark",
     description:
-      "Parse Markdown into typed objects. Serialize them back. Declarative generator-based format system for TypeScript.",
+      "Parse Markdown into typed objects. Serialize them back. Lightweight format system for TypeScript.",
     applicationCategory: "DeveloperApplication",
     operatingSystem: "Any",
     offers: {
@@ -118,7 +118,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <html lang="en" suppressHydrationWarning className="dark">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
         <script

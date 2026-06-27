@@ -1,0 +1,8 @@
+{
+  "title": "Stringify SDK",
+  "pages": [
+    "index",
+    "builders",
+    "document-serialization"
+  ]
+}

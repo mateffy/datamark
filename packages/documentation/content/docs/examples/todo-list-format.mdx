@@ -1,67 +1,22 @@
 ---
-title: Todo List
-description: Parsing todo items with checkboxes, priorities, and descriptions.
+title: Todo List Format
+description: Parse checkbox items with priorities.
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example parses a todo list with optional priorities and completion status. It uses the Parse SDK's `inlineText` and `extractTodoItems` for parsing, and stringify primitives (`heading`, `list`) for serialization.
+
+<Example name="todo-list" />
+
 ```typescript
-import { datamark, heading, rest, extractTodoItems, textContent, inlineText } from "datamark";
-import * as z from "zod";
-
-const TodoListFormat = datamark({
-  schema: z.object({
-    title: z.string(),
-    items: z.array(z.object({
-      text: z.string(),
-      completed: z.boolean(),
-      priority: z.enum(["low", "medium", "high"]).optional(),
-    })),
-  }),
-
-  *parse(doc) {
-    const h1 = yield* doc.consume(heading(1));
-    const nodes = yield* doc.consume(rest());
-    const rawTodos = extractTodoItems(nodes);
-    const items = rawTodos.map((t) => {
-      const priorityMatch = t.text.match(/^\[(low|medium|high)\]\s*/);
-      return {
-        text: priorityMatch ? t.text.slice(priorityMatch[0].length) : t.text,
-        completed: t.completed,
-        priority: priorityMatch ? priorityMatch[1] as any : undefined,
-      };
-    });
-    return { title: inlineText(h1.children), items };
-  },
-
-  *stringify(doc, data) {
-    yield* heading(1, data.title);
-    for (const item of data.items) {
-      const prefix = item.priority ? `[${item.priority}] ` : "";
-      const text = prefix + item.text;
-      yield* todoItem(text, item.completed);
-    }
-  },
-});
+const result = TodoFormat.parse(todoMarkdown);
+console.log(result.title); // "Today's Tasks"
+console.log(result.items[0].priority); // "high"
 ```
 
-### Example input
+## Key concepts
 
-```markdown
-# Today's Tasks
-
-- [x] [high] Fix the bug
-- [ ] [medium] Write tests
-- [ ] Review PR
-```
-
-### Example output
-
-```json
-{
-  "title": "Today's Tasks",
-  "items": [
-    { "text": "Fix the bug", "completed": true, "priority": "high" },
-    { "text": "Write tests", "completed": false, "priority": "medium" },
-    { "text": "Review PR", "completed": false }
-  ]
-}
-```
+- **`extractTodoItems()`** from the Parse SDK finds all checkbox items recursively
+- The `text` field of a todo item can include a priority prefix like `[high]`
+- **`list()`** from `datamark/stringify` builds the list string — no manual `\n` concatenation

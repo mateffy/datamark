@@ -1,4 +1,19 @@
-import { datamark, heading, splitBy, codeBlock, many, optional, until, rest, markdown, todoItem, isCodeBlock, isHeading } from "datamark";
+import { datamark } from "datamark";
+import {
+  inlineText,
+  textContent,
+  findAll,
+  isCodeBlock,
+  isHeading,
+  extractTodoItems,
+} from "datamark/parse";
+import {
+  frontmatter,
+  heading,
+  paragraph,
+  codeBlock,
+  list,
+} from "datamark/stringify";
 import * as z from "zod";
 
 export interface ExampleFormat {
@@ -8,10 +23,11 @@ export interface ExampleFormat {
   markdown: string;
   formatCode: string;
   parseFn: (markdown: string) => unknown;
-  traceFn: (markdown: string) => unknown;
 }
 
 // ── Example 1: Plan ──────────────────────────────────────────────────────────
+
+const FrontmatterSchema = z.object({ id: z.string() });
 
 const PlanSchema = z.object({
   id: z.string(),
@@ -25,11 +41,27 @@ const PlanSchema = z.object({
 });
 
 const PlanFormat = datamark({
+  frontmatterSchema: FrontmatterSchema,
   schema: PlanSchema,
   description: "A project plan with frontmatter, title, and step sections.",
   examples: [
     {
-      text: `---\nid: plan-001\n---\n# Q3 Roadmap\n\n## Step\n\nSet up the project.\n\n\`\`\`javascript\nnpm init -y\n\`\`\`\n\n## Step\n\nImplement the core features.`,
+      text: `---
+id: plan-001
+---
+# Q3 Roadmap
+
+## Step
+
+Set up the project.
+
+\`\`\`javascript
+npm init -y
+\`\`\`
+
+## Step
+
+Implement the core features.`,
       data: {
         id: "plan-001",
         title: "Q3 Roadmap",
@@ -40,61 +72,65 @@ const PlanFormat = datamark({
       },
     },
   ],
-  *parse(doc) {
-    const fm = yield* doc.consumeFrontmatter();
-    const title = yield* doc.consume(heading(1));
-    const sections = yield* doc.consume(splitBy(heading(2)));
+  parse(doc) {
+    const id = doc.frontmatter.id;
+    const titleSection = doc.root.children.find((n) => n.type === "section") as any;
+    const title = titleSection ? inlineText(titleSection.heading.children) : "";
 
-    const steps = sections.map((section) => {
-      const scripts = section
-        .filter((n: any) => n.type === "code")
-        .map((n: any) => n.value);
-      const other = section.filter((n: any) => n.type !== "code");
-      const description = other
-        .map((n: any) => ("value" in n ? n.value : ""))
-        .join("\n")
-        .trim();
-      return { description, scripts };
-    });
+    const steps = titleSection
+      ? (titleSection.children.filter((n: any) => n.type === "section") as any[]).map(
+          (section) => {
+            const scripts = findAll(section, (n) => isCodeBlock(n, "javascript")).map(
+              (n: any) => n.value
+            );
+            const description = textContent(section).trim();
+            return { description, scripts };
+          }
+        )
+      : [];
 
-    return { id: (fm as any)?.id ?? "", title: title.text, steps };
+    return { id, title, steps };
   },
-
-  *stringify(doc, data) {
-    yield* doc.emitFrontmatter({ id: data.id, title: data.title });
-    yield* heading(1, data.title);
+  stringify(data) {
+    let md = frontmatter({ id: data.id }) + heading(data.title) + "\n\n";
     for (const step of data.steps) {
-      yield* heading(2, "Step");
-      if (step.description) yield* markdown(step.description);
-      for (const s of step.scripts) yield* codeBlock("javascript", s);
+      md += heading("Step", 2) + "\n\n" + paragraph(step.description) + "\n\n";
+      for (const script of step.scripts) {
+        md += codeBlock(script, "javascript") + "\n\n";
+      }
     }
+    return md;
   },
 });
 
 // ── Example 2: Blog Post ───────────────────────────────────────────────────
 
+const BlogFrontmatterSchema = z.object({
+  title: z.string(),
+  date: z.string(),
+  author: z.string(),
+  tags: z.array(z.string()),
+});
+
 const BlogPostSchema = z.object({
-  meta: z.object({
-    title: z.string(),
-    date: z.string(),
-    author: z.string(),
-    tags: z.array(z.string()),
-  }),
+  meta: BlogFrontmatterSchema,
   body: z.string(),
 });
 
 const BlogPostFormat = datamark({
+  frontmatterSchema: BlogFrontmatterSchema,
   schema: BlogPostSchema,
-  *parse(doc) {
-    const fm = yield* doc.consumeFrontmatter();
-    const meta = fm as any;
-    const bodyNodes = yield* doc.consume(rest());
-    const body = bodyNodes.map((n: any) => n.raw ?? "").join("\n").trim();
+  parse(doc) {
+    const meta = doc.frontmatter;
+    const body = textContent(doc.root).trim();
     return { meta, body };
   },
-  *stringify(doc, data) {
-    yield* doc.emitFrontmatter(data.meta);
-    yield* markdown(data.body);
+  stringify(data) {
+    return (
+      frontmatter(data.meta) +
+      paragraph(data.body) +
+      "\n"
+    );
   },
 });
 
@@ -113,37 +149,10 @@ const TodoListSchema = z.object({
 
 const TodoListFormat = datamark({
   schema: TodoListSchema,
-  *parse(doc) {
-    const h1 = yield* doc.consume(heading(1));
-    const nodes = yield* doc.consume(rest());
-    const rawTodos = (() => {
-      // Inline extractTodoItems logic for browser compatibility
-      const items: Array<{ text: string; completed: boolean }> = [];
-      function walk(ns: any[]) {
-        for (const n of ns) {
-          if (n.type === "list") {
-            for (const item of n.items) {
-              const first = item[0];
-              if (first && first.type === "paragraph") {
-                const text = first.children
-                  .map((c: any) => (c.type === "text" ? c.value : ""))
-                  .join("");
-                const match = text.match(/^\[([ xX])\]\s?(.*)$/);
-                if (match) {
-                  items.push({
-                    text: match[2]!,
-                    completed: match[1]!.toLowerCase() === "x",
-                  });
-                }
-              }
-            }
-          }
-          if (n.type === "blockquote") walk(n.children);
-        }
-      }
-      walk(nodes);
-      return items;
-    })();
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const title = h1 ? inlineText(h1.heading.children) : "";
+    const rawTodos = extractTodoItems(doc.root);
 
     const items = rawTodos.map((t) => {
       const priorityMatch = t.text.match(/^\[(low|medium|high)\]\s*/);
@@ -153,14 +162,15 @@ const TodoListFormat = datamark({
         priority: priorityMatch ? (priorityMatch[1] as any) : undefined,
       };
     });
-    return { title: h1.text, items };
+    return { title, items };
   },
-  *stringify(doc, data) {
-    yield* heading(1, data.title);
-    for (const item of data.items) {
+  stringify(data) {
+    const items = data.items.map((item) => {
       const prefix = item.priority ? `[${item.priority}] ` : "";
-      yield* todoItem(prefix + item.text, item.completed);
-    }
+      const checkbox = item.completed ? "[x]" : "[ ]";
+      return `${checkbox} ${prefix}${item.text}`;
+    });
+    return heading(data.title) + "\n\n" + list(items) + "\n";
   },
 });
 
@@ -183,39 +193,37 @@ const ApiDocSchema = z.object({
 
 const ApiDocFormat = datamark({
   schema: ApiDocSchema,
-  *parse(doc) {
-    const h1 = yield* doc.consume(heading(1));
-    const parts = h1.text.split(" ");
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const headingText = h1 ? inlineText(h1.heading.children) : "";
+    const parts = headingText.split(" ");
     const method = parts[0] as any;
     const endpoint = parts[1] ?? "";
 
-    const sections = yield* doc.consume(splitBy(heading(2)));
+    const sections = doc.root.children.filter((n) => n.type === "section") as any[];
+    const topSection = sections[0];
+    const subSections = topSection
+      ? (topSection.children.filter((n: any) => n.type === "section") as any[])
+      : [];
 
     let description = "";
     let response = "";
     let params: any[] = [];
 
-    for (const section of sections) {
-      const headingNode = section.find((n: any) => n.type === "heading");
-      const headingText = headingNode?.children
-        ?.map((c: any) => (c.type === "text" ? c.value : ""))
-        .join("")
-        .toLowerCase() ?? "";
+    for (const section of subSections) {
+      const headingText = section.heading
+        ? inlineText(section.heading.children).toLowerCase()
+        : "";
 
       if (headingText.includes("description")) {
-        description = section
-          .filter((n: any) => n.type === "paragraph")
-          .map((n: any) =>
-            n.children.map((c: any) => (c.type === "text" ? c.value : "")).join("")
-          )
-          .join("\n");
+        description = textContent(section).trim();
       }
 
       if (headingText.includes("parameters")) {
-        const paramBlocks = section.filter((n: any) => isCodeBlock(n, "json"));
+        const paramBlocks = findAll(section, (n) => isCodeBlock(n, "json"));
         for (const block of paramBlocks) {
           try {
-            const parsed = JSON.parse(block.value);
+            const parsed = JSON.parse((block as any).value);
             params.push(parsed);
           } catch {
             /* ignore */
@@ -224,25 +232,375 @@ const ApiDocFormat = datamark({
       }
 
       if (headingText.includes("response")) {
-        const respBlock = section.find((n: any) => isCodeBlock(n, "json"));
-        response = respBlock?.value ?? "";
+        const respBlocks = findAll(section, (n) => isCodeBlock(n, "json"));
+        if (respBlocks.length > 0) {
+          response = (respBlocks[0] as any).value;
+        }
       }
     }
 
     return { endpoint, method, description, params, response };
   },
-  *stringify(doc, data) {
-    yield* heading(1, `${data.method} ${data.endpoint}`);
-    yield* heading(2, "Description");
-    yield* markdown(data.description);
+  stringify(data) {
+    let md = heading(`${data.method} ${data.endpoint}`) + "\n\n";
+    md += heading("Description", 2) + "\n\n" + paragraph(data.description) + "\n\n";
     if (data.params.length > 0) {
-      yield* heading(2, "Parameters");
+      md += heading("Parameters", 2) + "\n\n";
       for (const p of data.params) {
-        yield* codeBlock("json", JSON.stringify(p, null, 2));
+        md += codeBlock(JSON.stringify(p, null, 2), "json") + "\n\n";
       }
     }
-    yield* heading(2, "Response");
-    yield* codeBlock("json", data.response);
+    md += heading("Response", 2) + "\n\n";
+    md += codeBlock(data.response, "json") + "\n\n";
+    return md;
+  },
+});
+
+// ── Example 5: Changelog ────────────────────────────────────────────────────
+
+const ChangelogSchema = z.object({
+  versions: z.array(
+    z.object({
+      version: z.string(),
+      date: z.string().optional(),
+      changes: z.array(z.string()),
+    })
+  ),
+});
+
+const ChangelogFormat = datamark({
+  schema: ChangelogSchema,
+  description: "A versioned changelog with release dates and bullet lists.",
+  examples: [
+    {
+      text: `# Changelog
+
+## 1.2.0 — 2026-06-15
+
+- Added dark mode support
+- Fixed memory leak in parser
+- Improved error messages
+
+## 1.1.0 — 2026-05-01
+
+- New table parsing
+- Better frontmatter handling`,
+      data: {
+        versions: [
+          {
+            version: "1.2.0",
+            date: "2026-06-15",
+            changes: [
+              "Added dark mode support",
+              "Fixed memory leak in parser",
+              "Improved error messages",
+            ],
+          },
+          {
+            version: "1.1.0",
+            date: "2026-05-01",
+            changes: ["New table parsing", "Better frontmatter handling"],
+          },
+        ],
+      },
+    },
+  ],
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const versionSections = h1
+      ? (h1.children.filter((n: any) => n.type === "section") as any[])
+      : [];
+
+    const versions = versionSections.map((section: any) => {
+      const heading = inlineText(section.heading.children);
+      const match = heading.match(/^(\S+)\s*(?:[—-]\s*(.+))?$/);
+      const version = match?.[1] ?? heading;
+      const date = match?.[2];
+
+      const changes: string[] = [];
+      for (const child of section.children) {
+        if (child.type === "list") {
+          for (const item of child.children) {
+            changes.push(textContent(item).trim());
+          }
+        }
+      }
+
+      return { version, date, changes };
+    });
+
+    return { versions };
+  },
+  stringify(data) {
+    let md = heading("Changelog") + "\n\n";
+    for (const v of data.versions) {
+      const datePart = v.date ? ` — ${v.date}` : "";
+      md += heading(`${v.version}${datePart}`, 2) + "\n\n";
+      md += list(v.changes) + "\n\n";
+    }
+    return md;
+  },
+});
+
+// ── Example 6: Recipe ──────────────────────────────────────────────────────
+
+const RecipeFrontmatterSchema = z.object({
+  prepTime: z.string(),
+  cookTime: z.string(),
+  servings: z.number(),
+});
+
+const RecipeSchema = z.object({
+  title: z.string(),
+  prepTime: z.string(),
+  cookTime: z.string(),
+  servings: z.number(),
+  ingredients: z.array(z.string()),
+  steps: z.array(z.string()),
+});
+
+const RecipeFormat = datamark({
+  frontmatterSchema: RecipeFrontmatterSchema,
+  schema: RecipeSchema,
+  description: "A cooking recipe with frontmatter metadata, ingredients list, and step sections.",
+  examples: [
+    {
+      text: `---
+prepTime: 15 min
+cookTime: 30 min
+servings: 4
+---
+# Pancakes
+
+## Ingredients
+
+- 2 cups flour
+- 2 eggs
+- 1.5 cups milk
+- 1 tbsp sugar
+
+## Steps
+
+### Mix Dry Ingredients
+
+Whisk the flour and sugar together in a large bowl.
+
+### Combine Wet Ingredients
+
+Beat the eggs into the milk, then pour into the dry mix.
+
+### Cook
+
+Ladle onto a hot griddle. Flip when bubbles form.`,
+      data: {
+        title: "Pancakes",
+        prepTime: "15 min",
+        cookTime: "30 min",
+        servings: 4,
+        ingredients: ["2 cups flour", "2 eggs", "1.5 cups milk", "1 tbsp sugar"],
+        steps: [
+          "Mix Dry Ingredients\n\nWhisk the flour and sugar together in a large bowl.",
+          "Combine Wet Ingredients\n\nBeat the eggs into the milk, then pour into the dry mix.",
+          "Cook\n\nLadle onto a hot griddle. Flip when bubbles form.",
+        ],
+      },
+    },
+  ],
+  parse(doc) {
+    const fm = doc.frontmatter;
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const title = h1 ? inlineText(h1.heading.children) : "";
+
+    const subSections = h1
+      ? (h1.children.filter((n: any) => n.type === "section") as any[])
+      : [];
+
+    const ingredientsSection = subSections.find(
+      (s) => inlineText(s.heading.children).toLowerCase() === "ingredients"
+    );
+    const ingredients: string[] = [];
+    if (ingredientsSection) {
+      for (const child of ingredientsSection.children) {
+        if (child.type === "list") {
+          for (const item of child.children) {
+            ingredients.push(textContent(item).trim());
+          }
+        }
+      }
+    }
+
+    const stepsSection = subSections.find(
+      (s) => inlineText(s.heading.children).toLowerCase() === "steps"
+    );
+    const steps: string[] = [];
+    if (stepsSection) {
+      for (const stepSection of stepsSection.children.filter(
+        (n: any) => n.type === "section"
+      )) {
+        const heading = stepSection.heading
+          ? inlineText(stepSection.heading.children)
+          : "";
+        const body = textContent(stepSection).trim();
+        const bodyWithoutHeading = body
+          .replace(new RegExp(`^${heading}\\s*`), "")
+          .trim();
+        steps.push(`${heading}\n\n${bodyWithoutHeading}`);
+      }
+    }
+
+    return {
+      title,
+      prepTime: fm.prepTime,
+      cookTime: fm.cookTime,
+      servings: fm.servings,
+      ingredients,
+      steps,
+    };
+  },
+  stringify(data) {
+    let md =
+      frontmatter({
+        prepTime: data.prepTime,
+        cookTime: data.cookTime,
+        servings: data.servings,
+      }) +
+      heading(data.title) +
+      "\n\n";
+    md += heading("Ingredients", 2) + "\n\n" + list(data.ingredients) + "\n\n";
+    md += heading("Steps", 2) + "\n\n";
+    for (const step of data.steps) {
+      const [stepHeading, ...bodyLines] = step.split("\n");
+      md += heading(stepHeading, 3) + "\n\n" + paragraph(bodyLines.join("\n").trim()) + "\n\n";
+    }
+    return md;
+  },
+});
+
+// ── Example 7: Meeting Notes ───────────────────────────────────────────────
+
+const MeetingNotesSchema = z.object({
+  title: z.string(),
+  date: z.string(),
+  attendees: z.array(z.string()),
+  agenda: z.array(z.string()),
+  actionItems: z.array(
+    z.object({
+      text: z.string(),
+      completed: z.boolean(),
+      owner: z.string().optional(),
+    })
+  ),
+});
+
+const MeetingNotesFormat = datamark({
+  schema: MeetingNotesSchema,
+  description: "Meeting notes with attendees, agenda, and tracked action items.",
+  examples: [
+    {
+      text: `# Sprint Planning — 2026-06-20
+
+## Attendees
+
+- Alice (Engineering)
+- Bob (Product)
+- Carol (Design)
+
+## Agenda
+
+1. Review last sprint
+2. Plan next sprint
+3. Estimate stories
+
+## Action Items
+
+- [ ] Alice: Set up CI pipeline
+- [x] Bob: Update product roadmap
+- [ ] Carol: Design system review`,
+      data: {
+        title: "Sprint Planning — 2026-06-20",
+        date: "2026-06-20",
+        attendees: ["Alice (Engineering)", "Bob (Product)", "Carol (Design)"],
+        agenda: ["Review last sprint", "Plan next sprint", "Estimate stories"],
+        actionItems: [
+          { text: "Set up CI pipeline", completed: false, owner: "Alice" },
+          { text: "Update product roadmap", completed: true, owner: "Bob" },
+          { text: "Design system review", completed: false, owner: "Carol" },
+        ],
+      },
+    },
+  ],
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const headingText = h1 ? inlineText(h1.heading.children) : "";
+    const dateMatch = headingText.match(/\d{4}-\d{2}-\d{2}/);
+    const title = headingText;
+    const date = dateMatch ? dateMatch[0] : "";
+
+    const subSections = h1
+      ? (h1.children.filter((n: any) => n.type === "section") as any[])
+      : [];
+
+    const attendeesSection = subSections.find(
+      (s) => inlineText(s.heading.children).toLowerCase() === "attendees"
+    );
+    const attendees: string[] = [];
+    if (attendeesSection) {
+      for (const child of attendeesSection.children) {
+        if (child.type === "list") {
+          for (const item of child.children) {
+            attendees.push(textContent(item).trim());
+          }
+        }
+      }
+    }
+
+    const agendaSection = subSections.find(
+      (s) => inlineText(s.heading.children).toLowerCase() === "agenda"
+    );
+    const agenda: string[] = [];
+    if (agendaSection) {
+      for (const child of agendaSection.children) {
+        if (child.type === "list") {
+          for (const item of child.children) {
+            agenda.push(textContent(item).trim());
+          }
+        }
+      }
+    }
+
+    const actionSection = subSections.find(
+      (s) => inlineText(s.heading.children).toLowerCase() === "action items"
+    );
+    let actionItems: any[] = [];
+    if (actionSection) {
+      const rawTodos = extractTodoItems(actionSection);
+      actionItems = rawTodos.map((t) => {
+        const match = t.text.match(/^([^(]+)\(([^)]+)\)\s*:\s*(.+)$/);
+        if (match) {
+          return {
+            owner: match[1].trim(),
+            text: match[3].trim(),
+            completed: t.completed,
+          };
+        }
+        return { text: t.text, completed: t.completed };
+      });
+    }
+
+    return { title, date, attendees, agenda, actionItems };
+  },
+  stringify(data) {
+    let md = heading(data.title) + "\n\n";
+    md += heading("Attendees", 2) + "\n\n" + list(data.attendees) + "\n\n";
+    md += heading("Agenda", 2) + "\n\n" + list(data.agenda, true) + "\n\n";
+    md += heading("Action Items", 2) + "\n\n";
+    const actionItems = data.actionItems.map((item) => {
+      const prefix = item.owner ? `${item.owner}: ` : "";
+      const checkbox = item.completed ? "[x]" : "[ ]";
+      return `${checkbox} ${prefix}${item.text}`;
+    });
+    md += list(actionItems) + "\n";
+    return md;
   },
 });
 
@@ -307,9 +665,71 @@ Returns a paginated list of users from the database.
 { "users": [{ "id": 1, "name": "Ada Lovelace" }] }
 \`\`\``;
 
+const changelogMarkdown = `# Changelog
+
+## 1.2.0 — 2026-06-15
+
+- Added dark mode support
+- Fixed memory leak in parser
+- Improved error messages
+
+## 1.1.0 — 2026-05-01
+
+- New table parsing
+- Better frontmatter handling`;
+
+const recipeMarkdown = `---
+prepTime: 15 min
+cookTime: 30 min
+servings: 4
+---
+# Pancakes
+
+## Ingredients
+
+- 2 cups flour
+- 2 eggs
+- 1.5 cups milk
+- 1 tbsp sugar
+
+## Steps
+
+### Mix Dry Ingredients
+
+Whisk the flour and sugar together in a large bowl.
+
+### Combine Wet Ingredients
+
+Beat the eggs into the milk, then pour into the dry mix.
+
+### Cook
+
+Ladle onto a hot griddle. Flip when bubbles form.`;
+
+const meetingMarkdown = `# Sprint Planning — 2026-06-20
+
+## Attendees
+
+- Alice (Engineering)
+- Bob (Product)
+- Carol (Design)
+
+## Agenda
+
+1. Review last sprint
+2. Plan next sprint
+3. Estimate stories
+
+## Action Items
+
+- [ ] Alice: Set up CI pipeline
+- [x] Bob: Update product roadmap
+- [ ] Carol: Design system review`;
+
 // ── Format code strings (for display) ──────────────────────────────────────
 
 const planFormatCode = `const PlanFormat = datamark({
+  frontmatterSchema: z.object({ id: z.string() }),
   schema: z.object({
     id: z.string(),
     title: z.string(),
@@ -319,46 +739,41 @@ const planFormatCode = `const PlanFormat = datamark({
     })),
   }),
 
-  *parse(doc) {
-    const fm = yield* doc.consumeFrontmatter();
-    const title = yield* doc.consume(heading(1));
-    const sections = yield* doc.consume(splitBy(heading(2)));
+  parse(doc) {
+    const id = doc.frontmatter.id; // typed as string
+    const titleSection = doc.root.children.find(n => n.type === "section");
+    const title = titleSection ? inlineText(titleSection.heading.children) : "";
 
-    const steps = sections.map((section) => {
-      const scripts = section
-        .filter((n) => n.type === "code")
-        .map((n) => n.value);
-      const description = section
-        .filter((n) => n.type !== "code")
-        .map((n) => n.value)
-        .join("\\n")
-        .trim();
-      return { description, scripts };
-    });
+    const steps = titleSection.children
+      .filter(n => n.type === "section")
+      .map(section => {
+        const scripts = findAll(section, n => isCodeBlock(n, "javascript"))
+          .map(n => n.value);
+        const description = textContent(section).trim();
+        return { description, scripts };
+      });
 
-    return { id: fm.id, title: title.text, steps };
+    return { id, title, steps };
   },
 });`;
 
 const blogFormatCode = `const BlogPostFormat = datamark({
+  frontmatterSchema: z.object({
+    title: z.string(),
+    date: z.string(),
+    author: z.string(),
+    tags: z.array(z.string()),
+  }),
   schema: z.object({
-    meta: z.object({
-      title: z.string(),
-      date: z.string(),
-      author: z.string(),
-      tags: z.array(z.string()),
-    }),
+    meta: z.object({ title: z.string(), date: z.string(),
+                     author: z.string(), tags: z.array(z.string()) }),
     body: z.string(),
   }),
 
-  *parse(doc) {
-    const fm = yield* doc.consumeFrontmatter();
-    const bodyNodes = yield* doc.consume(rest());
-    const body = bodyNodes
-      .map((n) => n.raw)
-      .join("\\n")
-      .trim();
-    return { meta: fm, body };
+  parse(doc) {
+    const meta = doc.frontmatter; // typed
+    const body = textContent(doc.root).trim();
+    return { meta, body };
   },
 });`;
 
@@ -372,12 +787,12 @@ const todoFormatCode = `const TodoListFormat = datamark({
     })),
   }),
 
-  *parse(doc) {
-    const h1 = yield* doc.consume(heading(1));
-    const nodes = yield* doc.consume(rest());
-    const rawTodos = extractTodoItems(nodes);
+  parse(doc) {
+    const h1 = doc.root.children.find(n => n.type === "section");
+    const title = h1 ? inlineText(h1.heading.children) : "";
+    const rawTodos = extractTodoItems(doc.root);
 
-    const items = rawTodos.map((t) => {
+    const items = rawTodos.map(t => {
       const match = t.text.match(/^\\[(low|medium|high)\\]\\s*/);
       return {
         text: match ? t.text.slice(match[0].length) : t.text,
@@ -386,7 +801,7 @@ const todoFormatCode = `const TodoListFormat = datamark({
       };
     });
 
-    return { title: h1.text, items };
+    return { title, items };
   },
 });`;
 
@@ -396,23 +811,115 @@ const apiFormatCode = `const ApiDocFormat = datamark({
     method: z.enum(["GET", "POST", "PUT", "DELETE"]),
     description: z.string(),
     params: z.array(z.object({
-      name: z.string(),
-      type: z.string(),
-      required: z.boolean(),
-      description: z.string(),
+      name: z.string(), type: z.string(),
+      required: z.boolean(), description: z.string(),
     })),
     response: z.string(),
   }),
 
-  *parse(doc) {
-    const h1 = yield* doc.consume(heading(1));
-    const [method, endpoint] = h1.text.split(" ");
-    const sections = yield* doc.consume(splitBy(heading(2)));
+  parse(doc) {
+    const h1 = doc.root.children.find(n => n.type === "section");
+    const [method, endpoint] = inlineText(h1.heading.children).split(" ");
+    const subSections = h1.children.filter(n => n.type === "section");
 
     // Extract description, params, response from sections
     // ...
 
     return { endpoint, method, description, params, response };
+  },
+});`;
+
+const changelogFormatCode = `const ChangelogFormat = datamark({
+  schema: z.object({
+    versions: z.array(z.object({
+      version: z.string(),
+      date: z.string().optional(),
+      changes: z.array(z.string()),
+    })),
+  }),
+
+  parse(doc) {
+    const h1 = doc.root.children.find(n => n.type === "section");
+    const versionSections = h1.children.filter(n => n.type === "section");
+
+    return {
+      versions: versionSections.map(section => {
+        const heading = inlineText(section.heading.children);
+        const match = heading.match(/^(\\S+)\\s*(?:[—-]\\s*(.+))?$/);
+        const changes = [];
+        for (const child of section.children) {
+          if (child.type === "list") {
+            for (const item of child.children) {
+              changes.push(textContent(item).trim());
+            }
+          }
+        }
+        return {
+          version: match?.[1] ?? heading,
+          date: match?.[2],
+          changes,
+        };
+      }),
+    };
+  },
+});`;
+
+const recipeFormatCode = `const RecipeFormat = datamark({
+  frontmatterSchema: z.object({
+    prepTime: z.string(),
+    cookTime: z.string(),
+    servings: z.number(),
+  }),
+  schema: z.object({
+    title: z.string(),
+    prepTime: z.string(),
+    cookTime: z.string(),
+    servings: z.number(),
+    ingredients: z.array(z.string()),
+    steps: z.array(z.string()),
+  }),
+
+  parse(doc) {
+    const fm = doc.frontmatter; // typed as { prepTime, cookTime, servings }
+    const h1 = doc.root.children.find(n => n.type === "section");
+    const subSections = h1.children.filter(n => n.type === "section");
+
+    const ingredientsSection = subSections.find(
+      s => inlineText(s.heading.children).toLowerCase() === "ingredients"
+    );
+    const ingredients = [];
+    // ...extract from list
+
+    const stepsSection = subSections.find(
+      s => inlineText(s.heading.children).toLowerCase() === "steps"
+    );
+    const steps = [];
+    // ...extract from sub-sections
+
+    return { title, prepTime: fm.prepTime, cookTime: fm.cookTime,
+             servings: fm.servings, ingredients, steps };
+  },
+});`;
+
+const meetingFormatCode = `const MeetingNotesFormat = datamark({
+  schema: z.object({
+    title: z.string(), date: z.string(),
+    attendees: z.array(z.string()),
+    agenda: z.array(z.string()),
+    actionItems: z.array(z.object({
+      text: z.string(), completed: z.boolean(), owner: z.string().optional(),
+    })),
+  }),
+
+  parse(doc) {
+    const h1 = doc.root.children.find(n => n.type === "section");
+    const title = inlineText(h1.heading.children);
+    const dateMatch = title.match(/\\d{4}-\\d{2}-\\d{2}/);
+
+    const subSections = h1.children.filter(n => n.type === "section");
+    // ...extract attendees, agenda, action items
+
+    return { title, date: dateMatch?.[0] ?? "", attendees, agenda, actionItems };
   },
 });`;
 
@@ -426,7 +933,6 @@ export const examples: ExampleFormat[] = [
     markdown: planMarkdown,
     formatCode: planFormatCode,
     parseFn: (md) => PlanFormat.parse(md),
-    traceFn: (md) => PlanFormat.trace(md),
   },
   {
     id: "blog",
@@ -435,7 +941,6 @@ export const examples: ExampleFormat[] = [
     markdown: blogMarkdown,
     formatCode: blogFormatCode,
     parseFn: (md) => BlogPostFormat.parse(md),
-    traceFn: (md) => BlogPostFormat.trace(md),
   },
   {
     id: "todo",
@@ -444,7 +949,6 @@ export const examples: ExampleFormat[] = [
     markdown: todoMarkdown,
     formatCode: todoFormatCode,
     parseFn: (md) => TodoListFormat.parse(md),
-    traceFn: (md) => TodoListFormat.trace(md),
   },
   {
     id: "api",
@@ -453,7 +957,30 @@ export const examples: ExampleFormat[] = [
     markdown: apiMarkdown,
     formatCode: apiFormatCode,
     parseFn: (md) => ApiDocFormat.parse(md),
-    traceFn: (md) => ApiDocFormat.trace(md),
+  },
+  {
+    id: "changelog",
+    label: "Changelog",
+    description: "Versioned changelog with release dates and bullet lists",
+    markdown: changelogMarkdown,
+    formatCode: changelogFormatCode,
+    parseFn: (md) => ChangelogFormat.parse(md),
+  },
+  {
+    id: "recipe",
+    label: "Recipe",
+    description: "Cooking recipe with frontmatter metadata and step sections",
+    markdown: recipeMarkdown,
+    formatCode: recipeFormatCode,
+    parseFn: (md) => RecipeFormat.parse(md),
+  },
+  {
+    id: "meeting",
+    label: "Meeting Notes",
+    description: "Meeting notes with attendees, agenda, and action items",
+    markdown: meetingMarkdown,
+    formatCode: meetingFormatCode,
+    parseFn: (md) => MeetingNotesFormat.parse(md),
   },
 ];
 

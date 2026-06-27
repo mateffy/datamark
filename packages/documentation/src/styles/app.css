@@ -1,39 +1,133 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap");
 @import "tailwindcss";
 @import "fumadocs-ui/css/dusk.css";
 @import "fumadocs-ui/css/preset.css";
 
 @theme {
   /* Dark mode base */
-  --color-void: #0B0A0F;
-  --color-surface: #15131B;
-  --color-elevated: #1C1924;
-  --color-border-subtle: rgba(255, 255, 255, 0.06);
-  --color-border-glow: rgba(82, 39, 255, 0.3);
-  --color-text-primary: #F0F0F5;
-  --color-text-secondary: #A0A0B0;
-  --color-text-muted: #606070;
+  --color-void: #0C0C0C;
+  --color-surface: #141414;
+  --color-elevated: #1E1E1E;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-glow: rgba(255, 100, 140, 0.2);
+  --color-text-primary: #F0F0F0;
+  --color-text-secondary: #A0A0A0;
+  --color-text-muted: #666666;
   --color-accent-purple: #5227FF;
   --color-accent-pink: #FF9FFC;
   --color-accent-blue: #60A5FA;
+  --color-accent: hsl(340, 100%, 90%);
 
-  /* Slate overrides for dark */
-  --color-slate-50: #f8fafc;
-  --color-slate-100: #f1f5f9;
-  --color-slate-200: #e2e8f0;
-  --color-slate-300: #cbd5e1;
-  --color-slate-400: #94a3b8;
-  --color-slate-500: #64748b;
-  --color-slate-600: #475569;
-  --color-slate-700: #334155;
-  --color-slate-800: #1e293b;
-  --color-slate-900: #0f172a;
-  --color-slate-950: #020617;
+  /* Neutral overrides (replacing blue-tinted slate) */
+  --color-slate-50: #fafafa;
+  --color-slate-100: #f5f5f5;
+  --color-slate-200: #e5e5e5;
+  --color-slate-300: #d4d4d4;
+  --color-slate-400: #a3a3a3;
+  --color-slate-500: #737373;
+  --color-slate-600: #525252;
+  --color-slate-700: #404040;
+  --color-slate-800: #262626;
+  --color-slate-900: #171717;
+  --color-slate-950: #0a0a0a;
   --color-blue-600: #2563eb;
   --color-blue-700: #1d4ed8;
+
+  --font-serif: "Instrument Serif", serif;
 }
 
-/* Global dark mode overrides */
+/* Light mode (default) */
+html:not(.dark) {
+  --color-void: #faf9f7;
+  --color-surface: #ffffff;
+  --color-elevated: #f5f4f2;
+  --color-border-subtle: rgba(0, 0, 0, 0.08);
+  --color-border-glow: rgba(82, 39, 255, 0.2);
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #555555;
+  --color-text-muted: #888888;
+  --color-accent-purple: #5227FF;
+  --color-accent-pink: #d946ef;
+  --color-accent-blue: #2563eb;
+  --color-accent: hsl(340, 40%, 48%);
+
+  /* Fumadocs overrides — neutral grays */
+  --color-fd-background: #fafafa;
+  --color-fd-card: #f5f5f5;
+  --color-fd-card-foreground: #171717;
+  --color-fd-secondary: #f0f0f0;
+  --color-fd-secondary-foreground: #171717;
+  --color-fd-muted: #f5f5f5;
+  --color-fd-muted-foreground: #737373;
+  --color-fd-border: #e5e5e5;
+  --color-fd-accent: #f0f0f0;
+  --color-fd-accent-foreground: #171717;
+  --color-fd-popover: #ffffff;
+  --color-fd-popover-foreground: #171717;
+  --color-fd-foreground: #1a1a1a;
+  --color-fd-primary-foreground: #171717;
+
+  /* Syntax highlighting — light mode */
+  --syntax-keyword: #7c3aed;
+  --syntax-function: #2563eb;
+  --syntax-string: #0d9488;
+  --syntax-number: #b45309;
+  --syntax-comment: #6b7280;
+  --syntax-property: #4f46e5;
+  --syntax-tag: #dc2626;
+  --syntax-plain: #1a1a1a;
+  --syntax-punctuation: #737373;
+}
+
+html:not(.dark) body {
+  background-color: var(--color-void);
+  color: var(--color-text-primary);
+}
+
+/* Dark mode overrides */
+html.dark {
+  --color-void: #0C0C0C;
+  --color-surface: #141414;
+  --color-elevated: #1E1E1E;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-glow: rgba(255, 100, 140, 0.2);
+  --color-text-primary: #F0F0F0;
+  --color-text-secondary: #A0A0A0;
+  --color-text-muted: #666666;
+  --color-accent-purple: #5227FF;
+  --color-accent-pink: #FF9FFC;
+  --color-accent-blue: #60A5FA;
+  --color-accent: hsl(340, 100%, 90%);
+
+  /* Fumadocs overrides — neutral grays */
+  --color-fd-background: #0C0C0C;
+  --color-fd-card: #141414;
+  --color-fd-card-foreground: #F0F0F0;
+  --color-fd-secondary: #1E1E1E;
+  --color-fd-secondary-foreground: #F0F0F0;
+  --color-fd-muted: #1E1E1E;
+  --color-fd-muted-foreground: #A0A0A0;
+  --color-fd-border: #2A2A2A;
+  --color-fd-accent: #1E1E1E;
+  --color-fd-accent-foreground: #F0F0F0;
+  --color-fd-popover: #141414;
+  --color-fd-popover-foreground: #F0F0F0;
+  --color-fd-foreground: #F0F0F0;
+  --color-fd-primary-foreground: #0C0C0C;
+
+  /* Syntax highlighting — dark mode */
+  --syntax-keyword: #c084fc;
+  --syntax-function: #60A5FA;
+  --syntax-string: #5eead4;
+  --syntax-number: #fbbf24;
+  --syntax-comment: #6b7280;
+  --syntax-property: #a5b4fc;
+  --syntax-tag: #f87171;
+  --syntax-plain: #F0F0F5;
+  --syntax-punctuation: #A0A0B0;
+}
+
 html.dark body {
   background-color: var(--color-void);
   color: var(--color-text-primary);
@@ -237,7 +331,7 @@ html.dark body {
   overflow: auto;
 }
 
-/* Custom scrollbar for dark theme */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -251,4 +345,13 @@ html.dark body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
+}
+
+/* Fumadocs sidebar override — neutral gray instead of blue-tinted */
+#nd-sidebar {
+  background-color: var(--color-fd-card);
+}
+
+.dark #nd-sidebar {
+  background-color: var(--color-fd-card);
 }

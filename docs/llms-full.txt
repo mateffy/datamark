@@ -1,540 +1,361 @@
-# Frontmatter
+# API Doc Format
 
 
 
 import { Callout } from 'fumadocs-ui/components/callout';
 
-datamark provides two frontmatter extraction functions for cases where you need them standalone.
-
-extractFrontmatter() [#extractfrontmatter]
+This example parses API documentation with endpoint info, parameters, and response examples. It combines AST utilities (`findAll`, `isCodeBlock`, `textContent`, `inlineText`) for extraction and stringify primitives (`heading`, `paragraph`, `codeBlock`) for reconstruction.
 
 ```typescript
-import { extractFrontmatter } from "datamark";
-
-const result = extractFrontmatter(`---\ntitle: Hello\n---\nBody here`);
-// { frontmatter: "title: Hello", body: "Body here" }
-```
-
-Supports both `---` and `+++` style fences. Returns `null` if no frontmatter is found.
-
-splitFrontmatter() [#splitfrontmatter]
-
-```typescript
-import { splitFrontmatter } from "datamark";
-
-const result = splitFrontmatter(`---\ntitle: Hello\n---\nBody here`);
-// { frontmatter: "title: Hello", body: "Body here" }
-```
-
-More lenient than `extractFrontmatter`. Uses line-by-line scanning and handles missing closing fences gracefully. Always returns an object (frontmatter may be empty string).
-
-<Callout type="info">
-  You usually don't need these directly. `parse()` handles frontmatter extraction and YAML parsing automatically.
-</Callout>
-
-FrontmatterError [#frontmattererror]
-
-Both functions throw `FrontmatterError` on unexpected issues:
-
-```typescript
-import { FrontmatterError } from "datamark";
-
-try {
-  extractFrontmatter(badContent);
-} catch (err) {
-  if (err instanceof FrontmatterError) {
-    console.error(err.message);
-  }
-}
-```
-
-
-# AST SDK
-
-
-
-import { Card, Cards } from 'fumadocs-ui/components/card';
-
-Low-level building blocks for working with Markdown documents.
-
-<Cards>
-  <Card title="parse() & stringify()" description="Parse Markdown strings into typed documents and back" href="/docs/core/parse-and-stringify" />
-
-  <Card title="Frontmatter" description="Extract and split YAML frontmatter from Markdown" href="/docs/core/frontmatter" />
-
-  <Card title="YAML" description="Parse and stringify YAML with datamark's built-in helpers" href="/docs/core/yaml" />
-
-  <Card title="Tree Utilities" description="Query, filter, split, and serialize the AST" href="/docs/core/tree-utils" />
-</Cards>
-
-
-# parse() & stringify()
-
-
-
-import { Callout } from 'fumadocs-ui/components/callout';
-
-The core `parse()` function turns a Markdown string into a typed `Document`. `stringify()` does the reverse. These are low-level building blocks — no validation, no title detection, just raw frontmatter and AST.
-
-parse() [#parse]
-
-```typescript
-import { parse } from "datamark";
-
-const doc = parse(content);
-```
-
-Returns [#returns]
-
-```typescript
-interface Document {
-  type: "document";
-  frontmatter: Record<string, unknown> | null;
-  children: BlockNode[];
-}
-```
-
-<Callout type="info">
-  `parse` does **not** validate the body of the document. It only extracts raw frontmatter and produces the AST. Use the Format SDK for schema-validated body parsing, title extraction, and structured data.
-</Callout>
-
-stringify() [#stringify]
-
-```typescript
-import { stringify } from "datamark";
-
-const markdown = stringify(doc);
-```
-
-Serializes a `Document` back into a Markdown string. Frontmatter is emitted when present. Children are serialized as markdown.
-
-
-# Tree Utilities
-
-
-
-import { Callout } from 'fumadocs-ui/components/callout';
-
-The `tree-utils` module provides utilities for working with `BlockNode[]` arrays. Most functions recurse into blockquotes and list items automatically.
-
-find / findAll [#find--findall]
-
-```typescript
-import { find, findAll, isHeading } from "datamark";
-
-const firstH2 = find(nodes, (n) => isHeading(n, 2));
-const allCodeBlocks = findAll(nodes, (n) => n.type === "code");
-```
-
-filter [#filter]
-
-Top-level filter (does not recurse):
-
-```typescript
-import { filter } from "datamark";
-
-const paragraphs = filter(nodes, (n) => n.type === "paragraph");
-```
-
-sections [#sections]
-
-Split nodes into sections separated by headings at a given depth:
-
-```typescript
-import { sections } from "datamark";
-
-const sections = sections(nodes, { by: "heading", level: 2 });
-// [{ heading: HeadingNode | null, children: BlockNode[] }, ...]
-```
-
-splitBy [#splitby]
-
-Split nodes by a predicate. Separator nodes are discarded:
-
-```typescript
-import { splitBy, isHeading } from "datamark";
-
-const groups = splitBy(nodes, (n) => isHeading(n, 2));
-// BlockNode[][] — each group is nodes between H2s
-```
-
-between / after / before [#between--after--before]
-
-```typescript
-import { between, after, before } from "datamark";
-
-const intro = between(nodes, isHeading(1), isHeading(2));
-const rest = after(nodes, (n) => isHeading(n, 1));
-const preamble = before(nodes, (n) => isHeading(n, 1));
-```
-
-codeBlocks [#codeblocks]
-
-Extract all code blocks recursively:
-
-```typescript
-import { codeBlocks } from "datamark";
-
-const blocks = codeBlocks(nodes);
-// CodeNode[]
-```
-
-textContent / inlineText [#textcontent--inlinetext]
-
-Extract plain text from nodes:
-
-```typescript
-import { textContent, inlineText } from "datamark";
-
-const bodyText = textContent(nodes); // from BlockNode[]
-const linkLabel = inlineText(linkNode.children); // from InlineNode[]
-```
-
-toMarkdown [#tomarkdown]
-
-Serialize block nodes back to a Markdown string:
-
-```typescript
-import { toMarkdown } from "datamark";
-
-const markdown = toMarkdown(nodes);
-```
-
-<Callout type="info">
-  `toMarkdown` is the reverse of parsing. It handles headings, paragraphs, code blocks, lists, blockquotes, tables, and inline formatting.
-</Callout>
-
-isHeading / isCodeBlock / isTodoItem [#isheading--iscodeblock--istodoitem]
-
-Type guards for common node types:
-
-```typescript
-import { isHeading, isCodeBlock, isTodoItem, extractTodoItems } from "datamark";
-
-if (isHeading(node, 1)) { /* ... */ }
-if (isCodeBlock(node, "typescript")) { /* ... */ }
-if (isTodoItem(node)) { /* ... */ }
-
-const todos = extractTodoItems(nodes);
-// [{ text: "Buy milk", completed: false, raw: "[ ] Buy milk" }]
-```
-
-
-# YAML
-
-
-
-import { Callout } from 'fumadocs-ui/components/callout';
-
-datamark re-exports thin wrappers around the `yaml` library for frontmatter handling.
-
-parseYaml() [#parseyaml]
-
-```typescript
-import { parseYaml } from "datamark";
-
-const data = parseYaml(`name: Ada\nage: 30`);
-// { name: "Ada", age: 30 }
-```
-
-stringifyYaml() [#stringifyyaml]
-
-```typescript
-import { stringifyYaml } from "datamark";
-
-const yaml = stringifyYaml({ name: "Ada", age: 30 });
-// "name: Ada\nage: 30\n"
-```
-
-YamlParseError [#yamlparseerror]
-
-Thrown when YAML parsing fails:
-
-```typescript
-import { YamlParseError } from "datamark";
-
-try {
-  parseYaml("bad: [");
-} catch (err) {
-  if (err instanceof YamlParseError) {
-    console.error(err.message);
-  }
-}
-```
-
-<Callout type="info">
-  These are thin wrappers. For advanced YAML features, use the `yaml` package directly.
-</Callout>
-
-
-# API Documentation
-
-
-
-```typescript
-import { datamark, heading, splitByCombinator, codeBlock, isCodeBlock, inlineText } from "datamark";
+import { datamark } from "datamark";
+import { findAll, inlineText, textContent, isCodeBlock } from "datamark/parse";
+import { heading, paragraph, codeBlock } from "datamark/stringify";
 import * as z from "zod";
 
-const ApiDocFormat = datamark({
-  schema: z.object({
-    endpoint: z.string(),
-    method: z.enum(["GET", "POST", "PUT", "DELETE"]),
-    description: z.string(),
-    params: z.array(z.object({
+const ApiDocSchema = z.object({
+  endpoint: z.string(),
+  method: z.enum(["GET", "POST", "PUT", "DELETE"]),
+  description: z.string(),
+  params: z.array(
+    z.object({
       name: z.string(),
       type: z.string(),
       required: z.boolean(),
       description: z.string(),
-    })),
-    response: z.string(),
-  }),
+    })
+  ),
+  response: z.string(),
+});
 
-  *parse(doc) {
-    const h1 = yield* doc.consume(heading(1));
-    const parts = inlineText(h1.children).split(" ");
-    const method = parts[0] as any;
+const ApiDocFormat = datamark({
+  schema: ApiDocSchema,
+
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const headingText = h1 ? inlineText(h1.heading.children) : "";
+    const parts = headingText.split(" ");
+    const method = parts[0] as "GET" | "POST" | "PUT" | "DELETE";
     const endpoint = parts[1] ?? "";
 
-    const sections = yield* doc.consume(splitByCombinator(heading(2)));
+    const sections = doc.root.children.filter((n) => n.type === "section") as any[];
+    const topSection = sections[0];
+    const subSections = topSection
+      ? (topSection.children.filter((n: any) => n.type === "section") as any[])
+      : [];
 
     let description = "";
     let response = "";
     let params: any[] = [];
 
-    for (const section of sections) {
-      const headingNode = section.find((n: any) => n.type === "heading");
-      const headingText = headingNode ? inlineText(headingNode.children).toLowerCase() : "";
+    for (const section of subSections) {
+      const sectionHeading = section.heading
+        ? inlineText(section.heading.children).toLowerCase()
+        : "";
 
-      if (headingText.includes("description")) {
-        description = section
-          .filter((n: any) => n.type === "paragraph")
-          .map((n: any) => n.children.map((c: any) => c.value).join(""))
-          .join("\n");
+      if (sectionHeading.includes("description")) {
+        description = textContent(section).trim();
       }
 
-      if (headingText.includes("parameters")) {
-        const paramBlocks = section.filter((n: any) => isCodeBlock(n, "json"));
+      if (sectionHeading.includes("parameters")) {
+        const paramBlocks = findAll(section, (n) => isCodeBlock(n, "json"));
         for (const block of paramBlocks) {
           try {
-            const parsed = JSON.parse(block.value);
+            const parsed = JSON.parse((block as any).value);
             params.push(parsed);
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
       }
 
-      if (headingText.includes("response")) {
-        const respBlock = section.find((n: any) => isCodeBlock(n, "json"));
-        response = respBlock?.value ?? "";
+      if (sectionHeading.includes("response")) {
+        const respBlocks = findAll(section, (n) => isCodeBlock(n, "json"));
+        if (respBlocks.length > 0) {
+          response = (respBlocks[0] as any).value;
+        }
       }
     }
 
     return { endpoint, method, description, params, response };
   },
 
-  *stringify(doc, data) {
-    yield* heading(1, `${data.method} ${data.endpoint}`);
-    yield* heading(2, "Description");
-    yield* markdown(data.description);
+  stringify(data) {
+    let md = heading(`${data.method} ${data.endpoint}`) + "\n\n";
+    md += heading("Description", 2) + "\n\n" + paragraph(data.description) + "\n\n";
     if (data.params.length > 0) {
-      yield* heading(2, "Parameters");
+      md += heading("Parameters", 2) + "\n\n";
       for (const p of data.params) {
-        yield* codeBlock("json", JSON.stringify(p, null, 2));
+        md += codeBlock(JSON.stringify(p, null, 2), "json") + "\n\n";
       }
     }
-    yield* heading(2, "Response");
-    yield* codeBlock("json", data.response);
+    md += heading("Response", 2) + "\n\n";
+    md += codeBlock(data.response, "json") + "\n\n";
+    return md;
   },
 });
-```
 
-Example input [#example-input]
-
-````markdown
-# GET /users
+const apiMarkdown = `# GET /users
 
 ## Description
 
-Returns a list of users.
+Returns a paginated list of users from the database.
 
 ## Parameters
 
-```json
-{ "name": "limit", "type": "number", "required": false, "description": "Max results" }
-````
+\`\`\`json
+{ "name": "limit", "type": "number", "required": false, "description": "Maximum number of results" }
+\`\`\`
 
-Response [#response]
+\`\`\`json
+{ "name": "offset", "type": "number", "required": false, "description": "Pagination offset" }
+\`\`\`
 
-```json
-{ "users": [{ "id": 1, "name": "Ada" }] }
+## Response
+
+\`\`\`json
+{ "users": [{ "id": 1, "name": "Ada Lovelace" }] }
+\`\`\``;
 ```
 
-````
+```typescript
+const result = ApiDocFormat.parse(apiMarkdown);
+console.log(result.method); // "GET"
+console.log(result.params[0].name); // "limit"
+```
 
-### Example output
+Key concepts [#key-concepts]
 
-```json
-{
-  "endpoint": "/users",
-  "method": "GET",
-  "description": "Returns a list of users.",
-  "params": [
-    { "name": "limit", "type": "number", "required": false, "description": "Max results" }
-  ],
-  "response": "{ \"users\": [{ \"id\": 1, \"name\": \"Ada\" }] }"
-}
-````
+* **`findAll()`** and **`isCodeBlock()`** from the Parse SDK extract code blocks by language
+* **`textContent()`** extracts all text from a section; **`inlineText()`** extracts heading text
+* **`codeBlock()`** from `datamark/stringify` serializes JSON back to fenced code blocks
 
 
 # Basic Format
 
 
 
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example shows a minimal format that extracts a title and body from a Markdown document. It uses the Parse SDK (`inlineText`, `textContent`) for parsing and the stringify subpath (`heading`, `paragraph`) for serialization.
+
 ```typescript
-import { datamark, heading, splitByCombinator, codeBlock, markdown, inlineText, textContent } from "datamark";
+import { datamark } from "datamark";
+import { inlineText, textContent } from "datamark/parse";
+import { heading, paragraph } from "datamark/stringify";
 import * as z from "zod";
 
-const PlanFormat = datamark({
-  schema: z.object({
-    id: z.string(),
-    title: z.string(),
-    steps: z.array(z.object({
-      description: z.string(),
-      scripts: z.array(z.string()),
-    })),
-  }),
+const BasicSchema = z.object({
+  title: z.string(),
+  body: z.string(),
+});
 
-  *parse(doc) {
-    const fm = yield* doc.frontmatter();
-    const title = yield* doc.consume(heading(1));
-    const sections = yield* doc.consume(splitByCombinator(heading(2)));
+const BasicFormat = datamark({
+  schema: BasicSchema,
 
-    const steps = sections.map((section) => {
-      const scripts = section
-        .filter((n) => n.type === "code")
-        .map((n: any) => n.value);
-      const other = section.filter((n) => n.type !== "code");
-      const description = other
-        .map((n: any) => ("value" in n ? n.value : ""))
-        .join("\n")
-        .trim();
-      return { description, scripts };
-    });
-
-    return { id: (fm as any)?.id ?? "", title: inlineText(title.children), steps };
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const title = h1 ? inlineText(h1.heading.children) : "";
+    // Get body from the first paragraph inside the top section, excluding the heading
+    const firstPara = h1?.children?.find((n: any) => n.type === "paragraph");
+    const body = firstPara ? inlineText(firstPara.children) : "";
+    return { title, body };
   },
 
-  *stringify(doc, data) {
-    yield* doc.emitFrontmatter({ id: data.id, title: data.title });
-    yield* heading(1, data.title);
-    for (const step of data.steps) {
-      yield* heading(2, "Step");
-      if (step.description) yield* markdown(step.description);
-      for (const s of step.scripts) yield* codeBlock("javascript", s);
-    }
+  stringify(data) {
+    return heading(data.title) + "\n\n" + paragraph(data.body) + "\n";
   },
 });
+
+const basicMarkdown = "# Hello\n\nThis is the body.";
 ```
 
-Example input [#example-input]
+```typescript
+const result = BasicFormat.parse("# Hello\n\nThis is the body.");
+console.log(result.title); // "Hello"
+console.log(result.body); // "This is the body."
 
-````markdown
----
-id: plan-001
----
-# Q3 Roadmap
+const markdown = BasicFormat.stringify(result);
+```
 
-## Step
+Key concepts [#key-concepts]
 
-Set up the project.
-
-```javascript
-npm init -y
-````
-
-Step [#step]
-
-Implement the core.
-
-````
-
-### Example output
-
-```json
-{
-  "id": "plan-001",
-  "title": "Q3 Roadmap",
-  "steps": [
-    { "description": "Set up the project.", "scripts": ["npm init -y"] },
-    { "description": "Implement the core.", "scripts": [] }
-  ]
-}
-````
+* **`inlineText()`** and **`textContent()`** from the Parse SDK extract text from the parsed tree
+* **`heading()`** and **`paragraph()`** from `datamark/stringify` build Markdown strings — no manual interpolation
+* The Format SDK wraps AST traversal + serialization into a typed, reusable object
 
 
-# Blog Post
+# Blog Post Format
 
 
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example parses a blog post with frontmatter metadata and body content. The frontmatter is fully typed via `frontmatterSchema`. AST utilities (`textContent`) extract the body, and stringify primitives (`frontmatter`, `paragraph`) reconstruct the Markdown.
 
 ```typescript
-import { datamark, heading, until, rest, markdown, inlineText, textContent } from "datamark";
+import { datamark } from "datamark";
+import { inlineText } from "datamark/parse";
+import { frontmatter, paragraph } from "datamark/stringify";
 import * as z from "zod";
+
+const BlogFrontmatterSchema = z.object({
+  title: z.string(),
+  date: z.string(),
+  author: z.string(),
+  tags: z.array(z.string()),
+});
+
+const BlogPostSchema = z.object({
+  meta: BlogFrontmatterSchema,
+  body: z.string(),
+});
 
 const BlogPostFormat = datamark({
-  schema: z.object({
-    meta: z.object({
-      title: z.string(),
-      date: z.string(),
-      author: z.string(),
-      tags: z.array(z.string()),
-    }),
-    body: z.string(),
-  }),
+  frontmatterSchema: BlogFrontmatterSchema,
+  schema: BlogPostSchema,
 
-  *parse(doc) {
-    const fm = yield* doc.frontmatter();
-    const meta = fm as any;
-    const bodyNodes = yield* doc.consume(rest());
-    const body = bodyNodes.map((n: any) => n.raw ?? "").join("\n").trim();
-    return { meta, body };
+  parse(doc) {
+    // Collect all paragraph text recursively, excluding headings
+    const paragraphs: string[] = [];
+    function walk(node: any) {
+      if (node.type === "paragraph") {
+        paragraphs.push(inlineText(node.children));
+      }
+      if (node.children) {
+        for (const child of node.children) {
+          walk(child);
+        }
+      }
+    }
+    walk(doc.root);
+    return { meta: doc.frontmatter, body: paragraphs.join("\n\n").trim() };
   },
 
-  *stringify(doc, data) {
-    yield* doc.emitFrontmatter(data.meta);
-    yield* markdown(data.body);
+  stringify(data) {
+    const paragraphs = data.body.split("\n\n").map((p) => paragraph(p));
+    return frontmatter(data.meta) + paragraphs.join("\n\n") + "\n";
   },
 });
-```
 
-Example input [#example-input]
-
-```markdown
----
+const blogPostMarkdown = `---
 title: Hello World
 date: 2026-05-30
 author: Ada
 tags: [typescript, markdown]
 ---
 
-This is the first paragraph.
+This is the first paragraph of the blog post.
 
 ## Subheading
 
-More content here.
+More content here with **bold** text and a [link](https://example.com).`;
 ```
 
-Example output [#example-output]
+```typescript
+const result = BlogPostFormat.parse(blogPostMarkdown);
+console.log(result.meta.title); // "Hello World"
+console.log(result.body); // full body text
+```
 
-```json
-{
-  "meta": {
-    "title": "Hello World",
-    "date": "2026-05-30",
-    "author": "Ada",
-    "tags": ["typescript", "markdown"]
+Key concepts [#key-concepts]
+
+* **`frontmatterSchema`** validates and types `doc.frontmatter` — no `as any` needed
+* **`textContent()`** from the Parse SDK recursively extracts all text from the document tree
+* **`frontmatter()`** from `datamark/stringify` serializes metadata back to YAML with proper escaping
+
+
+# Changelog Format
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example parses a changelog with version headings, optional release dates, and bullet lists of changes. It has no frontmatter — all data lives in the heading text and list items. AST utilities (`inlineText`, `textContent`) handle extraction; stringify primitives (`heading`, `list`) handle reconstruction.
+
+```typescript
+import { datamark } from "datamark";
+import { inlineText, textContent } from "datamark/parse";
+import { heading, list } from "datamark/stringify";
+import * as z from "zod";
+
+const ChangelogSchema = z.object({
+  versions: z.array(
+    z.object({
+      version: z.string(),
+      date: z.string().optional(),
+      changes: z.array(z.string()),
+    })
+  ),
+});
+
+const ChangelogFormat = datamark({
+  schema: ChangelogSchema,
+
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const versionSections = h1
+      ? (h1.children.filter((n: any) => n.type === "section") as any[])
+      : [];
+
+    const versions = versionSections.map((section: any) => {
+      const headingText = inlineText(section.heading.children);
+      const match = headingText.match(/^(\S+)\s*(?:[—-]\s*(.+))?$/);
+      const version = match?.[1] ?? headingText;
+      const date = match?.[2];
+
+      const changes: string[] = [];
+      for (const child of section.children) {
+        if (child.type === "list") {
+          for (const item of child.children) {
+            changes.push(inlineText(item.children[0]?.children ?? []).trim());
+          }
+        }
+      }
+
+      return { version, date, changes };
+    });
+
+    return { versions };
   },
-  "body": "This is the first paragraph.\n\n## Subheading\n\nMore content here."
-}
+
+  stringify(data) {
+    let md = heading("Changelog") + "\n\n";
+    for (const v of data.versions) {
+      const datePart = v.date ? ` — ${v.date}` : "";
+      md += heading(`${v.version}${datePart}`, 2) + "\n\n";
+      md += list(v.changes) + "\n\n";
+    }
+    return md;
+  },
+});
+
+const changelogMarkdown = `# Changelog
+
+## 1.2.0 — 2026-06-15
+
+- Added dark mode support
+- Fixed memory leak in parser
+- Improved error messages
+
+## 1.1.0 — 2026-05-01
+
+- New table parsing
+- Better frontmatter handling`;
 ```
+
+```typescript
+const result = ChangelogFormat.parse(changelogMarkdown);
+console.log(result.versions[0].version); // "1.2.0"
+console.log(result.versions[0].date);     // "2026-06-15"
+console.log(result.versions[0].changes.length); // 3
+```
+
+Key concepts [#key-concepts]
+
+* **No frontmatter** — the format uses heading text as the primary data source
+* **Regex parsing** — heading text is split into version and date with a simple regex
+* **`textContent()`** from the Parse SDK extracts plain text from each list item
+* **`heading()`** and **`list()`** from `datamark/stringify` reconstruct the markdown cleanly
 
 
 # Examples
@@ -543,85 +364,411 @@ Example output [#example-output]
 
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
-Practical format definitions for common document patterns.
+Practical format definitions for common document patterns. Each example uses the **Parse SDK** (`findAll`, `textContent`, `inlineText`, `isCodeBlock`, `extractTodoItems`) for parsing and **`datamark/stringify`** (`heading`, `list`, `codeBlock`, `frontmatter`) for serialization.
 
 <Cards>
-  <Card title="Basic Format" description="Frontmatter + title + step sections" href="/docs/examples/basic-format" />
+  <Card title="Basic Format" description="Simple heading + body extraction with inlineText and textContent" href="/docs/examples/basic-format" />
 
-  <Card title="Blog Post" description="Metadata, body, and tags" href="/docs/examples/blog-post-format" />
+  <Card title="Blog Post" description="Typed frontmatter + body content with textContent and frontmatter()" href="/docs/examples/blog-post-format" />
 
-  <Card title="Todo List" description="Checkboxes, priorities, and due dates" href="/docs/examples/todo-list-format" />
+  <Card title="Todo List" description="Checkbox items with extractTodoItems and list()" href="/docs/examples/todo-list-format" />
 
-  <Card title="API Documentation" description="Endpoints, parameters, and return types" href="/docs/examples/api-docs-format" />
+  <Card title="API Documentation" description="Endpoints, parameters, and JSON code blocks with findAll and codeBlock()" href="/docs/examples/api-docs-format" />
+
+  <Card title="Changelog" description="Versioned release notes with regex heading parsing and list()" href="/docs/examples/changelog-format" />
+
+  <Card title="Recipe" description="Frontmatter metadata + ingredients + step sections with section walking" href="/docs/examples/recipe-format" />
+
+  <Card title="Meeting Notes" description="Attendees, agenda, and tracked action items with extractTodoItems" href="/docs/examples/meeting-notes-format" />
 </Cards>
 
+Pattern: Three imports [#pattern-three-imports]
 
-# Todo List
-
-
+Every format definition imports from three places:
 
 ```typescript
-import { datamark, heading, rest, extractTodoItems, textContent, inlineText } from "datamark";
+import { datamark } from "datamark";
+import { inlineText, textContent, findAll, isCodeBlock } from "datamark/parse";
+import { heading, list, codeBlock, frontmatter } from "datamark/stringify";
+```
+
+* **`datamark`** gives you the format factory
+* **`datamark/parse`** gives you AST traversal and extraction utilities
+* **`datamark/stringify`** gives you builder functions for clean Markdown output
+
+This separation keeps your imports explicit: the format system on one side, parsing on another, serialization on the third.
+
+
+# Meeting Notes Format
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example parses meeting notes with a title containing the date, attendee lists, agenda items, and checkbox action items with owners. No frontmatter needed. It uses AST utilities (`inlineText`, `textContent`, `extractTodoItems`) for extraction and stringify primitives (`heading`, `list`) for reconstruction.
+
+```typescript
+import { datamark } from "datamark";
+import { inlineText, textContent, extractTodoItems } from "datamark/parse";
+import { heading, list } from "datamark/stringify";
 import * as z from "zod";
 
-const TodoListFormat = datamark({
-  schema: z.object({
-    title: z.string(),
-    items: z.array(z.object({
+const MeetingNotesSchema = z.object({
+  title: z.string(),
+  date: z.string(),
+  attendees: z.array(z.string()),
+  agenda: z.array(z.string()),
+  actionItems: z.array(
+    z.object({
+      text: z.string(),
+      completed: z.boolean(),
+      owner: z.string().optional(),
+    })
+  ),
+});
+
+const MeetingNotesFormat = datamark({
+  schema: MeetingNotesSchema,
+
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const headingText = h1 ? inlineText(h1.heading.children) : "";
+    const dateMatch = headingText.match(/\d{4}-\d{2}-\d{2}/);
+    const title = headingText;
+    const date = dateMatch ? dateMatch[0] : "";
+
+    const subSections = h1
+      ? (h1.children.filter((n: any) => n.type === "section") as any[])
+      : [];
+
+    const attendeesSection = subSections.find(
+      (s) => inlineText(s.heading.children).toLowerCase() === "attendees"
+    );
+    const attendees: string[] = [];
+    if (attendeesSection) {
+      for (const child of attendeesSection.children) {
+        if (child.type === "list") {
+          for (const item of child.children) {
+            attendees.push(inlineText(item.children[0]?.children ?? []).trim());
+          }
+        }
+      }
+    }
+
+    const agendaSection = subSections.find(
+      (s) => inlineText(s.heading.children).toLowerCase() === "agenda"
+    );
+    const agenda: string[] = [];
+    if (agendaSection) {
+      for (const child of agendaSection.children) {
+        if (child.type === "list") {
+          for (const item of child.children) {
+            agenda.push(inlineText(item.children[0]?.children ?? []).trim());
+          }
+        }
+      }
+    }
+
+    const actionSection = subSections.find(
+      (s) => inlineText(s.heading.children).toLowerCase() === "action items"
+    );
+    let actionItems: any[] = [];
+    if (actionSection) {
+      const rawTodos = extractTodoItems(actionSection);
+      actionItems = rawTodos.map((t) => {
+        const match = t.text.match(/^([^:]+)\s*:\s*(.+)$/);
+        if (match) {
+          return {
+            owner: match[1].trim(),
+            text: match[2].trim(),
+            completed: t.completed,
+          };
+        }
+        return { text: t.text, completed: t.completed };
+      });
+    }
+
+    return { title, date, attendees, agenda, actionItems };
+  },
+
+  stringify(data) {
+    let md = heading(data.title) + "\n\n";
+    md += heading("Attendees", 2) + "\n\n" + list(data.attendees) + "\n\n";
+    md += heading("Agenda", 2) + "\n\n" + list(data.agenda, true) + "\n\n";
+    md += heading("Action Items", 2) + "\n\n";
+    const actionItems = data.actionItems.map((item) => {
+      const prefix = item.owner ? `${item.owner}: ` : "";
+      const checkbox = item.completed ? "[x]" : "[ ]";
+      return `${checkbox} ${prefix}${item.text}`;
+    });
+    md += list(actionItems) + "\n";
+    return md;
+  },
+});
+
+const meetingNotesMarkdown = `# Sprint Planning — 2026-06-20
+
+## Attendees
+
+- Alice (Engineering)
+- Bob (Product)
+- Carol (Design)
+
+## Agenda
+
+1. Review last sprint
+2. Plan next sprint
+3. Estimate stories
+
+## Action Items
+
+- [ ] Alice: Set up CI pipeline
+- [x] Bob: Update product roadmap
+- [ ] Carol: Design system review`;
+```
+
+```typescript
+const result = MeetingNotesFormat.parse(meetingNotesMarkdown);
+console.log(result.title);            // "Sprint Planning — 2026-06-20"
+console.log(result.date);             // "2026-06-20"
+console.log(result.attendees.length); // 3
+console.log(result.actionItems[0].owner);     // "Alice"
+console.log(result.actionItems[0].completed); // false
+```
+
+Key concepts [#key-concepts]
+
+* **Date extraction from heading** — regex pulls the ISO date out of the title
+* **`extractTodoItems()`** from the Parse SDK finds all checkbox items under the "Action Items" section
+* **Owner parsing from checkbox text** — action items follow the pattern `Owner: Task description`
+* **Ordered vs. unordered lists** — agenda uses numbered lists, attendees and action items use bullets
+* **`list()`** from `datamark/stringify` with `ordered: true` reconstructs numbered lists correctly
+
+
+# Recipe Format
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example parses a recipe with typed frontmatter metadata (prep time, cook time, servings), an ingredients list, and step-by-step instructions organized in subsections. It uses AST utilities (`inlineText`, `textContent`) for extraction and stringify primitives (`frontmatter`, `heading`, `list`, `paragraph`) for reconstruction.
+
+```typescript
+import { datamark } from "datamark";
+import { inlineText, textContent } from "datamark/parse";
+import { frontmatter, heading, list, paragraph } from "datamark/stringify";
+import * as z from "zod";
+
+const RecipeFrontmatterSchema = z.object({
+  prepTime: z.string(),
+  cookTime: z.string(),
+  servings: z.number(),
+});
+
+const RecipeSchema = z.object({
+  title: z.string(),
+  prepTime: z.string(),
+  cookTime: z.string(),
+  servings: z.number(),
+  ingredients: z.array(z.string()),
+  steps: z.array(z.string()),
+});
+
+const RecipeFormat = datamark({
+  frontmatterSchema: RecipeFrontmatterSchema,
+  schema: RecipeSchema,
+
+  parse(doc) {
+    const fm = doc.frontmatter;
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const title = h1 ? inlineText(h1.heading.children) : "";
+
+    const subSections = h1
+      ? (h1.children.filter((n: any) => n.type === "section") as any[])
+      : [];
+
+    const ingredientsSection = subSections.find(
+      (s) => inlineText(s.heading.children).toLowerCase() === "ingredients"
+    );
+    const ingredients: string[] = [];
+    if (ingredientsSection) {
+      for (const child of ingredientsSection.children) {
+        if (child.type === "list") {
+          for (const item of child.children) {
+            ingredients.push(inlineText(item.children[0]?.children ?? []).trim());
+          }
+        }
+      }
+    }
+
+    const stepsSection = subSections.find(
+      (s) => inlineText(s.heading.children).toLowerCase() === "steps"
+    );
+    const steps: string[] = [];
+    if (stepsSection) {
+      for (const stepSection of stepsSection.children.filter(
+        (n: any) => n.type === "section"
+      )) {
+        const stepHeading = stepSection.heading
+          ? inlineText(stepSection.heading.children)
+          : "";
+        const body = textContent(stepSection).trim();
+        const bodyWithoutHeading = body
+          .replace(new RegExp(`^${stepHeading}\\s*`), "")
+          .trim();
+        steps.push(`${stepHeading}\n\n${bodyWithoutHeading}`);
+      }
+    }
+
+    return {
+      title,
+      prepTime: fm.prepTime,
+      cookTime: fm.cookTime,
+      servings: fm.servings,
+      ingredients,
+      steps,
+    };
+  },
+
+  stringify(data) {
+    let md =
+      frontmatter({
+        prepTime: data.prepTime,
+        cookTime: data.cookTime,
+        servings: data.servings,
+      }) +
+      heading(data.title) +
+      "\n\n";
+    md += heading("Ingredients", 2) + "\n\n" + list(data.ingredients) + "\n\n";
+    md += heading("Steps", 2) + "\n\n";
+    for (const step of data.steps) {
+      const [stepHeading, ...bodyLines] = step.split("\n");
+      md += heading(stepHeading, 3) + "\n\n" + paragraph(bodyLines.join("\n").trim()) + "\n\n";
+    }
+    return md;
+  },
+});
+
+const recipeMarkdown = `---
+prepTime: 15 min
+cookTime: 30 min
+servings: 4
+---
+# Pancakes
+
+## Ingredients
+
+- 2 cups flour
+- 2 eggs
+- 1.5 cups milk
+- 1 tbsp sugar
+
+## Steps
+
+### Mix Dry Ingredients
+
+Whisk the flour and sugar together in a large bowl.
+
+### Combine Wet Ingredients
+
+Beat the eggs into the milk, then pour into the dry mix.
+
+### Cook
+
+Ladle onto a hot griddle. Flip when bubbles form.`;
+```
+
+```typescript
+const result = RecipeFormat.parse(recipeMarkdown);
+console.log(result.title);        // "Pancakes"
+console.log(result.servings);     // 4
+console.log(result.ingredients);  // ["2 cups flour", ...]
+console.log(result.steps.length); // 3
+```
+
+Key concepts [#key-concepts]
+
+* **`frontmatterSchema`** validates frontmatter before `parse` runs — bad YAML or missing fields throw `ValidationError` immediately
+* **`frontmatter()`** from `datamark/stringify` serializes the metadata back to YAML with proper escaping
+* **Section lookup by heading text** — `subSections.find(s => inlineText(s.heading.children).toLowerCase() === "ingredients")`
+* **Nested subsections** — the "Steps" section contains `###` subsections, each parsed as a step
+* **Heading removal from body** — `textContent(stepSection)` includes the heading, so we strip it with a regex
+
+
+# Todo List Format
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example parses a todo list with optional priorities and completion status. It uses the Parse SDK's `inlineText` and `extractTodoItems` for parsing, and stringify primitives (`heading`, `list`) for serialization.
+
+```typescript
+import { datamark } from "datamark";
+import { inlineText, extractTodoItems } from "datamark/parse";
+import { heading, list } from "datamark/stringify";
+import * as z from "zod";
+
+const TodoSchema = z.object({
+  title: z.string(),
+  items: z.array(
+    z.object({
       text: z.string(),
       completed: z.boolean(),
       priority: z.enum(["low", "medium", "high"]).optional(),
-    })),
-  }),
+    })
+  ),
+});
 
-  *parse(doc) {
-    const h1 = yield* doc.consume(heading(1));
-    const nodes = yield* doc.consume(rest());
-    const rawTodos = extractTodoItems(nodes);
+const TodoFormat = datamark({
+  schema: TodoSchema,
+
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const title = h1 ? inlineText(h1.heading.children) : "";
+    const rawTodos = extractTodoItems(doc.root);
+
     const items = rawTodos.map((t) => {
-      const priorityMatch = t.text.match(/^\[(low|medium|high)\]\s*/);
+      const match = t.text.match(/^\[(low|medium|high)\]\s*/);
       return {
-        text: priorityMatch ? t.text.slice(priorityMatch[0].length) : t.text,
+        text: match ? t.text.slice(match[0].length) : t.text,
         completed: t.completed,
-        priority: priorityMatch ? priorityMatch[1] as any : undefined,
+        priority: match ? (match[1] as "low" | "medium" | "high") : undefined,
       };
     });
-    return { title: inlineText(h1.children), items };
+
+    return { title, items };
   },
 
-  *stringify(doc, data) {
-    yield* heading(1, data.title);
-    for (const item of data.items) {
+  stringify(data) {
+    const items = data.items.map((item) => {
       const prefix = item.priority ? `[${item.priority}] ` : "";
-      const text = prefix + item.text;
-      yield* todoItem(text, item.completed);
-    }
+      const checkbox = item.completed ? "[x]" : "[ ]";
+      return `${checkbox} ${prefix}${item.text}`;
+    });
+    return heading(data.title) + "\n\n" + list(items) + "\n";
   },
 });
+
+const todoMarkdown = `# Today's Tasks
+
+- [x] [high] Fix the critical bug
+- [ ] [medium] Write unit tests
+- [ ] Review pull request
+- [x] Update documentation`;
 ```
 
-Example input [#example-input]
-
-```markdown
-# Today's Tasks
-
-- [x] [high] Fix the bug
-- [ ] [medium] Write tests
-- [ ] Review PR
+```typescript
+const result = TodoFormat.parse(todoMarkdown);
+console.log(result.title); // "Today's Tasks"
+console.log(result.items[0].priority); // "high"
 ```
 
-Example output [#example-output]
+Key concepts [#key-concepts]
 
-```json
-{
-  "title": "Today's Tasks",
-  "items": [
-    { "text": "Fix the bug", "completed": true, "priority": "high" },
-    { "text": "Write tests", "completed": false, "priority": "medium" },
-    { "text": "Review PR", "completed": false }
-  ]
-}
-```
+* **`extractTodoItems()`** from the Parse SDK finds all checkbox items recursively
+* The `text` field of a todo item can include a priority prefix like `[high]`
+* **`list()`** from `datamark/stringify` builds the list string — no manual `\n` concatenation
 
 
 # The AST
@@ -638,12 +785,92 @@ Document [#document]
 interface Document {
   type: "document";
   frontmatter: Record<string, unknown> | null;
-  children: BlockNode[];
+  root: SectionNode;
 }
 ```
 
 * `frontmatter` — parsed YAML from `---` fences, or `null`
-* `children` — array of top-level block nodes
+* `root` — the root section of the document tree
+
+Section tree [#section-tree]
+
+The `root` is a `SectionNode` that organizes the entire document by heading depth:
+
+```typescript
+interface SectionNode {
+  type: "section";
+  heading: HeadingNode | null;
+  children: Node[];
+}
+```
+
+Headings become section boundaries. A section contains its heading (if any) and all content until the next heading of the same or lesser depth. The algorithm is single-pass, stack-based, and depth-agnostic — any heading depth works.
+
+```typescript
+import { parse } from "datamark";
+
+const doc = parse(`
+# Title
+
+Intro paragraph.
+
+## Section A
+
+Some text.
+
+### Subsection A1
+
+More text.
+
+## Section B
+
+Final text.
+`);
+
+// Section tree navigation
+const topSection = doc.root.children.find(
+  (n) => n.type === "section"
+) as any;
+
+const topSectionDepth = topSection?.heading?.depth;
+const subSections = topSection?.children?.filter(
+  (n: any) => n.type === "section"
+);
+const subSubSections = subSections?.[0]?.children?.filter(
+  (n: any) => n.type === "section"
+);
+const subSubDepth = subSubSections?.[0]?.heading?.depth;
+
+// Node example
+const paraDoc = parse(`# Hello\n\nThis is a **paragraph**.`);
+const firstSection = paraDoc.root.children[0] as any;
+const firstSectionType = firstSection.type;
+const firstSectionHeadingDepth = firstSection.heading.depth;
+const firstParagraph = firstSection.children.find(
+  (n: any) => n.type === "paragraph"
+);
+const firstSectionChildType = firstParagraph?.type ?? "none";
+```
+
+<Callout type="info">
+  Content before the first heading stays in `root.children`. If there are no headings at all, the entire document is in `root.children`.
+</Callout>
+
+Node hierarchy [#node-hierarchy]
+
+All nodes share a common base:
+
+```typescript
+interface Node {
+  type: string;
+  raw?: string;
+  position?: SourceSpan;
+}
+
+interface ParentNode extends Node {
+  children: Node[];
+}
+```
 
 Block nodes [#block-nodes]
 
@@ -654,8 +881,11 @@ Block nodes [#block-nodes]
 | `code`       | `CodeNode`       | `lang?: string`, `meta?: string`, `value: string` |
 | `blockquote` | `BlockquoteNode` | `children: BlockNode[]`                           |
 | `hr`         | `HrNode`         | —                                                 |
-| `list`       | `ListNode`       | `ordered: boolean`, `items: BlockNode[][]`        |
-| `table`      | `TableNode`      | `header`, `rows`, `align`                         |
+| `list`       | `ListNode`       | `ordered: boolean`, `children: ListItemNode[]`    |
+| `listItem`   | `ListItemNode`   | `children: BlockNode[]`                           |
+| `table`      | `TableNode`      | `children: TableRowNode[]`, `align`               |
+| `tableRow`   | `TableRowNode`   | `children: TableCellNode[]`                       |
+| `tableCell`  | `TableCellNode`  | `children: InlineNode[]`                          |
 | `html`       | `HtmlBlockNode`  | `value: string`                                   |
 | `space`      | `SpaceNode`      | —                                                 |
 
@@ -694,105 +924,12 @@ Example [#example]
 import { parse } from "datamark";
 
 const doc = parse(`# Hello\n\nThis is a **paragraph**.`);
-console.log(doc.children[0].type); // "heading"
-console.log(doc.children[0].depth); // 1
-console.log(doc.children[1].type); // "paragraph"
+const topSection = doc.root.children[0] as any;
+const paragraph = topSection.children.find((n: any) => n.type === "paragraph");
+console.log(topSection.type);        // "section"
+console.log(topSection.heading.depth); // 1
+console.log(paragraph.type);           // "paragraph"
 ```
-
-
-# Combinators
-
-
-
-import { Callout } from 'fumadocs-ui/components/callout';
-
-A combinator is a function that transforms an array of block nodes into a result and a remaining slice. `null` means the combinator did not match.
-
-```typescript
-type Combinator<T> = (nodes: BlockNode[]) => { value: T; remaining: BlockNode[] } | null;
-```
-
-Node matchers [#node-matchers]
-
-Matchers like `heading(1)` and `codeBlock()` are both predicates and combinators. They carry a `CombinatorSymbol` that the runner uses when you pass them to `doc.consume()`.
-
-```typescript
-const matcher = heading(1);
-matcher(blockNode); // true if it's an H1
-const result = matcher[CombinatorSymbol](nodes); // runs the combinator
-```
-
-This dual nature means you can reuse matchers in `filter`, `findAll`, and `splitBy` without writing separate predicate functions.
-
-Combinator modifiers [#combinator-modifiers]
-
-optional(matcher) [#optionalmatcher]
-
-Returns the value if it matches, or `undefined` if it doesn't. Never throws.
-
-many(matcher) [#manymatcher]
-
-Runs the combinator repeatedly until it fails. Returns all matches.
-
-repeat(count, matcher) [#repeatcount-matcher]
-
-Runs the combinator exactly `count` times. Throws if it can't match enough.
-
-Structural combinators [#structural-combinators]
-
-until(predicate) [#untilpredicate]
-
-Consumes nodes until the predicate matches. Returns consumed nodes; the matched node stays in `remaining`.
-
-splitByCombinator(predicate) [#splitbycombinatorpredicate]
-
-Splits all remaining nodes by a predicate. Returns groups of nodes separated by matching nodes (which are discarded). Consumes everything.
-
-<Callout type="info">
-  `splitByCombinator` is the workhorse for section-based documents. Combine it with `heading(2)` to split a document into top-level sections, then map over each section to extract its contents.
-</Callout>
-
-rest() [#rest]
-
-Consumes all remaining nodes. Always succeeds.
-
-section(depth) [#sectiondepth]
-
-Consumes a heading at the given depth plus all body nodes until the next heading of the same depth. The heading is included in the returned chunk. Fails if the first remaining node is not a matching heading.
-
-Predicate helpers [#predicate-helpers]
-
-except(predicate) [#exceptpredicate]
-
-Negates a predicate. Useful with `until()` or `splitByCombinator()`.
-
-any(...predicates) [#anypredicates]
-
-Returns `true` if any predicate matches.
-
-all(...predicates) [#allpredicates]
-
-Returns `true` only if all predicates match.
-
-How consume advances [#how-consume-advances]
-
-When you call `yield* doc.consume(heading(1))`, the runner:
-
-1. Finds the first matching node in `remaining`
-2. Returns it as `value`
-3. Sets `remaining` to everything after the matched node
-
-This means combinators are **cursor-advancing**. They don't just test — they consume.
-
-Error handling [#error-handling]
-
-When a combinator fails, the runner throws `TemplateParseError` with a message like:
-
-```
-Parse combinator "heading(1)" failed at position "## Subheading"
-```
-
-The position is derived from the first unconsumed node, so you know exactly where parsing broke down.
 
 
 # Explanation
@@ -801,184 +938,21 @@ The position is derived from the first unconsumed node, so you know exactly wher
 
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
-Deep dives into datamark's architecture, design decisions, and internals.
+Deep dives into datamark's architecture, design decisions, and internals. These pages explain why things work the way they do — useful when you want to understand the system beyond just using it.
 
 <Cards>
-  <Card title="The AST" description="Typed tree structure: Document, BlockNode, InlineNode" href="/docs/explanation/ast" />
+  <Card title="The AST" description="Typed tree structure: Document, SectionNode, BlockNode, InlineNode, and how the section tree is built" href="/docs/explanation/ast" />
 
-  <Card title="Format SDK" description="How generator-based parsing and serialization work" href="/docs/explanation/template-system" />
-
-  <Card title="Combinators" description="How consume, splitBy, many, optional, and friends work under the hood" href="/docs/explanation/combinators" />
-
-  <Card title="Validation" description="Standard Schema v1 support and error handling" href="/docs/explanation/validation" />
-
-  <Card title="Trace & Test" description="Debugging formats with trace and CI with test" href="/docs/explanation/trace-and-test" />
+  <Card title="Validation" description="Standard Schema v1 support, how validation integrates with the parse pipeline, and supported validators" href="/docs/explanation/validation" />
 </Cards>
 
+Design principles [#design-principles]
 
-# Format SDK
-
-
-
-import { Callout } from 'fumadocs-ui/components/callout';
-
-The Format SDK is the heart of datamark. It lets you define a **format** — a reusable, bidirectional mapping between Markdown documents and typed objects.
-
-The core idea [#the-core-idea]
-
-Instead of writing imperative traversal code over an AST, you write a **generator function** where each `yield*` expression triggers a combinator against the remaining document nodes. The generator's return value becomes the parsed object.
-
-```typescript
-*parse(doc) {
-  const fm = yield* doc.frontmatter();
-  const title = yield* doc.consume(heading(1));
-  return { title: inlineText(title.children), meta: fm };
-}
-```
-
-This reads as:
-
-1. Get the frontmatter.
-2. Consume the first H1 heading.
-3. Return an object with the title text and frontmatter.
-
-The datamark() factory [#the-datamark-factory]
-
-`datamark(config)` wraps your generator into a `Format<T>` with four methods:
-
-| Method            | Purpose                                             |
-| ----------------- | --------------------------------------------------- |
-| `parse(content)`  | Run the parse generator, validate against schema    |
-| `stringify(data)` | Run the emit generator, produce Markdown            |
-| `trace(content)`  | Step-by-step log of what each combinator consumed   |
-| `test()`          | Validate configured examples against parse + schema |
-
-How yield* works [#how-yield-works]
-
-Inside the generator, `yield*` is the syntax for delegating to another generator. datamark's combinators return `Yieldable<T>` values — objects that carry a `_tag` and executable logic.
-
-When the runner sees a `Yieldable`, it:
-
-1. Extracts the combinator name (e.g. `heading(1)`)
-2. Runs the combinator against `remaining` nodes
-3. Returns `{ value, remaining }` back into your generator
-4. Your generator receives `value` and continues
-
-<Callout type="info">
-  If a combinator fails (returns `null`), the runner throws a `TemplateParseError` with the position in the original Markdown.
-</Callout>
-
-The emit runner [#the-emit-runner]
-
-The stringify generator works the same way but in reverse. It receives an `EmitContext` and a data object, then uses `yield*` with emit combinators to build nodes:
-
-```typescript
-*stringify(doc, data) {
-  yield* doc.emitFrontmatter({ id: data.id });
-  yield* heading(1, data.title);
-  yield* markdown(data.body);
-}
-```
-
-The emit runner collects nodes into an array, then serializes the document with `stringify(doc)`.
-
-Sub-context parsing with generators [#sub-context-parsing-with-generators]
-
-For documents split into sections (e.g. H2-delimited steps), pass a generator as the second argument to `consume()` to run it on each chunk:
-
-```typescript
-const steps = yield* doc.consume(splitByCombinator(heading(2)), function* (subdoc) {
-  const h2 = yield* subdoc.consume(heading(2));
-  const body = yield* subdoc.consume(rest());
-  return {
-    title: inlineText(h2.children),
-    description: textContent(body),
-  };
-});
-// steps is fully typed Step[] — no manual mapping needed
-```
-
-`splitByCombinator(heading(2))` returns `BlockNode[][]`, so the generator runs once per chunk and the results are collected into an array. For flat combinators (like `until(heading(2))`), the generator runs once on a single sub-context.
-
-Why generators? [#why-generators]
-
-Generators let us pause execution between each combinator, inspect what was consumed, and inject synthetic values for tracing. They also read naturally: the code looks like a step-by-step recipe for consuming a document.
-
-See [Combinators](/docs/explanation/combinators) for how individual combinators work.
-
-
-# Trace & Test
-
-
-
-import { Callout } from 'fumadocs-ui/components/callout';
-
-Every format created with `datamark()` supports two introspection methods: `trace()` and `test()`.
-
-trace() [#trace]
-
-`trace(content)` runs your parse generator against a real document and records every step:
-
-```typescript
-const trace = PlanFormat.trace(markdown);
-
-for (const step of trace.steps) {
-  console.log(step.combinator); // "frontmatter"
-  console.log(step.matched); // { id: "plan-001" }
-  console.log(step.consumed); // raw nodes
-  console.log(step.region); // { start: { line: 1, column: 0 }, end: { ... } }
-}
-```
-
-This is invaluable when a format stops working on a new document. You can see exactly which combinator failed and what was left unconsumed.
-
-test() [#test]
-
-`test()` validates all configured examples against your parse generator and schema:
-
-```typescript
-const PlanFormat = datamark({
-  schema: z.object({ id: z.string() }),
-  examples: [
-    {
-      text: "---\nid: a\n---\n# Title",
-      data: { id: "a" },
-    },
-  ],
-  *parse(doc) {
-    // ...
-  },
-});
-
-const result = PlanFormat.test();
-console.log(result.passed); // true or false
-console.log(result.failures); // [] if passed
-```
-
-<Callout type="info">
-  Examples with both `text` and `data` are checked for exact output equality. Examples with only `text` are checked for parseability.
-</Callout>
-
-Using test() in CI [#using-test-in-ci]
-
-Add a test script to your project:
-
-```typescript
-import { PlanFormat } from "./formats/plan";
-
-if (import.meta.main) {
-  const result = PlanFormat.test();
-  if (!result.passed) {
-    for (const f of result.failures) {
-      console.error(`Example ${f.exampleIndex} failed: ${f.error}`);
-    }
-    process.exit(1);
-  }
-  console.log("All format examples passed.");
-}
-```
-
-This keeps your format definitions self-documenting and self-testing.
+* **Zero bundled dependencies** — You bring your own validator (Zod, Valibot, etc.). No lock-in.
+* **Unified node type** — `Node` is the base for everything. Sections, blocks, and inlines share the same traversal API.
+* **Native section tree** — Headings are section boundaries in the AST, not just block nodes. This makes document navigation natural.
+* **Type inference from schemas** — Both `frontmatterSchema` and `schema` infer their output types via the Standard Schema interface. No manual type annotations needed.
+* **Validation before execution** — Frontmatter is validated before `parse()` runs. Output is validated after. Your functions never see invalid data.
 
 
 # Validation
@@ -994,32 +968,97 @@ Standard Schema v1 [#standard-schema-v1]
 Any object with a `~standard` property implementing the spec can be passed as a schema:
 
 ```typescript
-import * as z from "zod";
 import { datamark } from "datamark";
+import { textContent } from "datamark/parse";
+import { ValidationError } from "datamark/parse";
+import * as z from "zod";
 
+// Standard Schema v1 example
 const MyFormat = datamark({
   schema: z.object({ name: z.string(), age: z.number() }),
-  *parse(doc) {
-    // ...
+  parse(doc) {
     return { name: "Ada", age: 30 };
   },
 });
 
+// Frontmatter validation example
+const BlogFormat = datamark({
+  frontmatterSchema: z.object({
+    title: z.string(),
+    date: z.string(),
+    author: z.string(),
+  }),
+  schema: z.object({ meta: z.any(), body: z.string() }),
+  parse(doc) {
+    const meta = doc.frontmatter;
+    const body = textContent(doc.root).trim();
+    return { meta, body };
+  },
+});
+
+// Sample documents
+const validBlogDoc = `---
+title: Hello
+date: 2024-01-01
+author: Ada
+---
+
+Body content here.
+`;
+
+const badAgeDoc = "# Hello\n\nBody";
+const badFrontmatterDoc = `---
+title: 123
+---
+
+# Hello`;
+```
+
+```typescript
 const result = MyFormat.parse(markdown);
 // result is typed as { name: string; age: number }
 ```
 
-Validation in the parse pipeline [#validation-in-the-parse-pipeline]
+Frontmatter validation [#frontmatter-validation]
 
-When a schema is provided, `parse()` validates the generator's return value automatically. If validation fails, it throws `ValidationError` with structured issue data:
+Formats can validate frontmatter separately from the output schema using `frontmatterSchema`:
 
 ```typescript
+import { datamark } from "datamark";
+import { textContent } from "datamark/parse";
+import * as z from "zod";
+
+const BlogFormat = datamark({
+  frontmatterSchema: z.object({
+    title: z.string(),
+    date: z.string(),
+    author: z.string(),
+  }),
+  schema: z.object({ meta: z.any(), body: z.string() }),
+
+  parse(doc) {
+    const meta = doc.frontmatter; // already validated
+    const body = textContent(doc.root).trim();
+    return { meta, body };
+  },
+});
+```
+
+When `frontmatterSchema` is provided, frontmatter is validated before your `parse` function runs. If it fails, you get a `ValidationError` with clear path information.
+
+Validation in the parse pipeline [#validation-in-the-parse-pipeline]
+
+When a schema is provided, `parse()` validates the return value automatically. If validation fails, it throws `ValidationError` with structured issue data:
+
+```typescript
+import { ValidationError } from "datamark/parse";
+
 try {
-  MyFormat.parse(badMarkdown);
+  BlogFormat.parse("---\ntitle: 123\n---\n\n# Hello");
 } catch (err) {
   if (err instanceof ValidationError) {
     console.log(err.issues);
-    // [{ message: "Expected string, received number", path: ["age"] }]
+    // [{ message: "Expected string, received number", path: ["title"] }]
   }
 }
 ```
@@ -1047,16 +1086,16 @@ Supported validators [#supported-validators]
 import { Card, Cards } from 'fumadocs-ui/components/card';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-datamark is a TypeScript library for turning Markdown documents into typed objects — and back again. It gives you a **declarative, generator-based format system** where you define how a document is consumed using combinators like `heading(1)`, `splitByCombinator(heading(2))`, and `many(codeBlock())`.
+datamark is a TypeScript library for turning Markdown documents into typed objects — and back again. It gives you a **unified AST** with a native section tree, plus a lightweight **format system** for defining how documents map to your data structures.
 
 <Cards>
-  <Card title="AST SDK" description="Parse documents, extract frontmatter, query the AST" href="/docs/core" />
+  <Card title="Parse SDK" description="Parse documents, extract frontmatter, query the AST" href="/docs/parse" />
+
+  <Card title="Stringify SDK" description="Serialize AST nodes and build Markdown with typed primitives" href="/docs/stringify" />
 
   <Card title="Format SDK" description="Define bidirectional formats with datamark()" href="/docs/template" />
 
   <Card title="Examples" description="Real-world format definitions for common patterns" href="/docs/examples" />
-
-  <Card title="Comparisons" description="How datamark compares to alternatives" href="/compare" />
 </Cards>
 
 Why datamark? [#why-datamark]
@@ -1066,9 +1105,7 @@ Markdown is the universal format for structured text, but parsing it into typed 
 1. **Regex and string manipulation** — fragile, unreadable, unmaintainable.
 2. **Abstract syntax trees** — powerful, but you still write imperative traversal code.
 
-datamark gives you a third option: **declare the shape of your document and get the shape of your data**.
-
-A format is a pair of generator functions. The `parse` generator consumes the AST using `yield*` combinators. The `stringify` generator emits nodes back into Markdown. Both share the same mental model.
+datamark gives you a third option: **a unified AST with a native section tree** and **a lightweight format system** that makes common patterns trivial.
 
 <Callout type="info">
   **Bring your own validator.** datamark uses the Standard Schema v1 interface, so Zod, Valibot, ArkType, TypeBox, and any compliant library work out of the box.
@@ -1077,27 +1114,82 @@ A format is a pair of generator functions. The `parse` generator consumes the AS
 A 10-second demo [#a-10-second-demo]
 
 ```typescript
-import { datamark, heading, inlineText } from "datamark";
+import { datamark } from "datamark";
+import { findAll, inlineText, textContent, isCodeBlock } from "datamark/parse";
+import { frontmatter, heading, paragraph, codeBlock } from "datamark/stringify";
 import * as z from "zod";
 
-const Plan = datamark({
-  schema: z.object({ id: z.string(), title: z.string() }),
-  *parse(doc) {
-    const fm = yield* doc.frontmatter();
-    const title = yield* doc.consume(heading(1));
-    return { id: (fm as any)?.id ?? "", title: inlineText(title.children) };
+const PlanFrontmatterSchema = z.object({ id: z.string() });
+
+const PlanSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  steps: z.array(
+    z.object({
+      description: z.string(),
+      scripts: z.array(z.string()),
+    })
+  ),
+});
+
+const PlanFormat = datamark({
+  frontmatterSchema: PlanFrontmatterSchema,
+  schema: PlanSchema,
+
+  parse(doc) {
+    const id = doc.frontmatter.id;
+    const titleSection = doc.root.children.find((n) => n.type === "section") as any;
+    const title = titleSection ? inlineText(titleSection.heading.children) : "";
+
+    const steps = titleSection
+      ? (titleSection.children.filter((n: any) => n.type === "section") as any[]).map(
+          (section) => {
+            const scripts = findAll(section, (n) => isCodeBlock(n, "javascript")).map(
+              (n: any) => n.value
+            );
+            const description = textContent(section).trim();
+            return { description, scripts };
+          }
+        )
+      : [];
+
+    return { id, title, steps };
   },
-  *stringify(doc, data) {
-    yield* doc.emitFrontmatter({ id: data.id });
-    yield* heading(1, data.title);
+
+  stringify(data) {
+    let md = frontmatter({ id: data.id }) + heading(data.title) + "\n\n";
+    for (const step of data.steps) {
+      md += heading("Step", 2) + "\n\n" + paragraph(step.description) + "\n\n";
+      for (const script of step.scripts) {
+        md += codeBlock(script, "javascript") + "\n\n";
+      }
+    }
+    return md;
   },
 });
 
-const result = Plan.parse(`---
+const planMarkdown = `---
 id: plan-001
 ---
-# Q3 Roadmap`);
-// { id: "plan-001", title: "Q3 Roadmap" }
+# Q3 Roadmap
+
+## Step
+
+Set up the project.
+
+\`\`\`javascript
+npm init -y
+\`\`\`
+
+## Step
+
+Implement the core features.`;
+```
+
+```typescript
+const result = PlanFormat.parse(planMarkdown);
+console.log(result.id);     // "plan-001"
+console.log(result.title);  // "Q3 Roadmap"
 ```
 
 What datamark is NOT [#what-datamark-is-not]
@@ -1120,13 +1212,412 @@ Who is it for? [#who-is-it-for]
 
 Quick navigation [#quick-navigation]
 
-| Goal                        | Section                                         |
-| --------------------------- | ----------------------------------------------- |
-| New here?                   | [Quickstart](/docs/quickstart)                  |
-| Understand the architecture | [Format SDK](/docs/explanation/template-system) |
-| Look up a function          | [AST SDK](/docs/core)                           |
-| See real formats            | [Examples](/docs/examples)                      |
-| Compare to alternatives     | [Comparisons](/compare)                         |
+| Goal                        | Section                          |
+| --------------------------- | -------------------------------- |
+| New here?                   | [Quickstart](/docs/quickstart)   |
+| Understand the architecture | [The AST](/docs/explanation/ast) |
+| Look up a function          | [Parse SDK](/docs/parse)         |
+| See real formats            | [Examples](/docs/examples)       |
+| Compare to alternatives     | [Comparisons](/compare)          |
+
+
+# Frontmatter
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+datamark provides two frontmatter extraction functions for cases where you need them standalone.
+
+```typescript
+import { extractFrontmatter, splitFrontmatter, FrontmatterError } from "datamark/parse";
+
+const extracted = extractFrontmatter(`---
+title: Hello
+---
+
+# Body`);
+
+const split = splitFrontmatter(`---
+title: Hello
+---
+
+# Body`);
+
+const noFrontmatter = splitFrontmatter("# No frontmatter\n\nBody");
+```
+
+extractFrontmatter() [#extractfrontmatter]
+
+```typescript
+import { extractFrontmatter } from "datamark/parse";
+
+const result = extractFrontmatter(`---
+title: Hello
+---
+Body here`);
+// { frontmatter: "title: Hello", body: "Body here" }
+```
+
+Supports both `---` and `+++` style fences. Returns `null` if no frontmatter is found.
+
+splitFrontmatter() [#splitfrontmatter]
+
+```typescript
+import { splitFrontmatter } from "datamark/parse";
+
+const result = splitFrontmatter(`---
+title: Hello
+---
+Body here`);
+// { frontmatter: "title: Hello", body: "Body here" }
+```
+
+More lenient than `extractFrontmatter`. Uses line-by-line scanning and handles missing closing fences gracefully. Always returns an object (frontmatter may be empty string).
+
+<Callout type="info">
+  You usually don't need these directly. `parse()` handles frontmatter extraction and YAML parsing automatically.
+</Callout>
+
+FrontmatterError [#frontmattererror]
+
+Both functions throw `FrontmatterError` on unexpected issues:
+
+```typescript
+import { FrontmatterError } from "datamark/parse";
+
+try {
+  extractFrontmatter(badContent);
+} catch (err) {
+  if (err instanceof FrontmatterError) {
+    console.error(err.message);
+  }
+}
+```
+
+
+# Parse SDK
+
+
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+The Parse SDK is the low-level layer of datamark. It turns Markdown strings into fully typed syntax trees and gives you the tools to query, transform, and extract data from them.
+
+Use it directly when you need fine-grained control over parsing, or as the foundation for higher-level formats built with the [Format SDK](/docs/template).
+
+<Cards>
+  <Card title="parse()" description="Turn Markdown into a typed Document with a section tree" href="/docs/parse/parse" />
+
+  <Card title="Frontmatter" description="Extract and split YAML frontmatter from Markdown strings" href="/docs/parse/frontmatter" />
+
+  <Card title="YAML" description="Parse and stringify YAML with thin built-in helpers" href="/docs/parse/yaml" />
+
+  <Card title="Tree Utilities" description="Find, filter, split, and extract data from the AST" href="/docs/parse/tree-utils" />
+</Cards>
+
+What the AST SDK provides [#what-the-ast-sdk-provides]
+
+| Capability      | Functions                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Parsing**     | `parse()`, `parseBlocks()`                                                                                         |
+| **Frontmatter** | `extractFrontmatter()`, `splitFrontmatter()`                                                                       |
+| **YAML**        | `parseYaml()`, `stringifyYaml()`                                                                                   |
+| **Querying**    | `find()`, `findAll()`, `filter()`, `sectionsAtDepth()`, `sectionsByHeading()`                                      |
+| **Splitting**   | `splitBy()`, `between()`, `after()`, `before()`                                                                    |
+| **Extraction**  | `codeBlocks()`, `inlineText()`, `textContent()`, `extractTodoItems()`                                              |
+| **Type guards** | `isHeading()`, `isCodeBlock()`, `isTodoItem()`, `isSection()`, `isBlockNode()`, `isInlineNode()`, `isParentNode()` |
+
+What the Format SDK adds on top [#what-the-format-sdk-adds-on-top]
+
+The [Format SDK](/docs/template) builds on the Parse SDK and adds:
+
+* **`datamark()`** — a factory that wraps `parse`, `stringify`, `schema`, and `examples` into a single typed format
+* **Typed frontmatter** — `frontmatterSchema` validates and types `doc.frontmatter` before your `parse` function runs
+* **Builder primitives** — `heading()`, `list()`, `codeBlock()`, `frontmatter()` from `datamark/stringify` replace fragile string concatenation
+* **Self-testing** — `examples` are validated by `.test()` automatically
+
+When to use the Parse SDK directly [#when-to-use-the-parse-sdk-directly]
+
+* You need to parse Markdown without defining a full format
+* You want to inspect or transform an AST interactively
+* You're building custom tooling on top of datamark's parser
+* You need to extract data from an AST without serialization
+
+For most use cases — especially when you want typed data, validation, and round-trip serialization — the [Format SDK](/docs/template) is the better starting point.
+
+
+# parse()
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+parse(content) [#parsecontent]
+
+Parses a Markdown string into a fully typed `Document` with a section tree.
+
+````typescript
+import { parse, stringify } from "datamark";
+import { parseBlocks, parseBody, buildSectionTree } from "datamark/parse";
+
+const sampleDoc = parse(`# Hello
+
+This is a paragraph.
+
+\`\`\`typescript
+const x = 1;
+\`\`\`
+
+## Subheading
+
+More content.`);
+
+const sampleBlocks = parseBlocks("# Title\n\nParagraph\n\n```\ncode\n```");
+
+const sampleBody = parseBody("# Title\n\nParagraph");
+````
+
+```typescript
+import { parse } from "datamark";
+
+const doc = parse(`
+---
+title: Hello
+---
+
+# Hello World
+
+This is the first paragraph.
+
+## Section
+
+More content here.
+`);
+
+console.log(doc.frontmatter); // { title: "Hello" }
+console.log(doc.root.type); // "section"
+```
+
+What parse() returns [#what-parse-returns]
+
+* **frontmatter**: Parsed YAML from `---` fences, or `null` if absent
+* **root**: A `SectionNode` containing the entire document tree
+
+The section tree is built automatically. Headings become boundaries, and all content is organized by depth. See [The AST](/docs/explanation/ast) for details.
+
+Low-level parsing [#low-level-parsing]
+
+If you need the flat block nodes without the section tree, use `parseBlocks()`:
+
+```typescript
+import { parseBlocks } from "datamark/parse";
+
+const blocks = parseBlocks("# Hello\n\nParagraph");
+// BlockNode[] — flat array, no section tree
+```
+
+<Callout type="info">
+  `parseBlocks` is also available as `parseBody` for backwards compatibility.
+</Callout>
+
+
+# Tree Utilities
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The `tree-utils` module provides utilities for working with the AST. Most functions operate on `Node` and recurse into the entire tree automatically.
+
+find / findAll [#find--findall]
+
+Find the first or all nodes matching a predicate anywhere in the tree:
+
+```typescript
+import { find, findAll, isHeading } from "datamark/parse";
+
+const firstH2 = find(doc.root, (n) => isHeading(n, 2));
+const allCodeBlocks = findAll(doc.root, (n) => n.type === "code");
+```
+
+filter [#filter]
+
+Top-level filter on a `Node[]` array (does not recurse):
+
+```typescript
+import { filter } from "datamark/parse";
+
+const paragraphs = filter(doc.root.children, (n) => n.type === "paragraph");
+```
+
+sectionsAtDepth / sectionsByHeading [#sectionsatdepth--sectionsbyheading]
+
+Find sections by depth or heading text:
+
+```typescript
+import { sectionsAtDepth, sectionsByHeading } from "datamark/parse";
+
+const h2s = sectionsAtDepth(doc.root, 2);
+const introSection = sectionsByHeading(doc.root, "Introduction");
+```
+
+splitBy [#splitby]
+
+Split a flat array of block nodes by a predicate. Separator nodes are discarded:
+
+```typescript
+import { splitBy, isHeading } from "datamark/parse";
+
+const groups = splitBy(flatBlocks, (n) => isHeading(n, 2));
+// BlockNode[][] — each group is nodes between H2s
+```
+
+between / after / before [#between--after--before]
+
+```typescript
+import { between, after, before } from "datamark/parse";
+
+const intro = between(flatBlocks, isHeading(1), isHeading(2));
+const rest = after(flatBlocks, (n) => isHeading(n, 1));
+const preamble = before(flatBlocks, (n) => isHeading(n, 1));
+```
+
+codeBlocks [#codeblocks]
+
+Extract all code blocks recursively from any node:
+
+```typescript
+import { codeBlocks } from "datamark/parse";
+
+const blocks = codeBlocks(doc.root);
+// CodeNode[]
+```
+
+textContent / inlineText [#textcontent--inlinetext]
+
+Extract plain text from nodes:
+
+```typescript
+import { textContent, inlineText } from "datamark/parse";
+
+const bodyText = textContent(doc.root); // from any Node
+const linkLabel = inlineText(linkNode.children); // from InlineNode[]
+```
+
+toMarkdown [#tomarkdown]
+
+Serialize nodes back to a Markdown string:
+
+```typescript
+import { toMarkdown } from "datamark/stringify";
+
+const markdown = toMarkdown(doc.root); // from SectionNode
+const markdown2 = toMarkdown(blocks); // from BlockNode[]
+```
+
+<Callout type="info">
+  `toMarkdown` is the reverse of parsing. It handles headings, paragraphs, code blocks, lists, blockquotes, tables, and inline formatting.
+</Callout>
+
+flatten [#flatten]
+
+Convert a section tree back to a flat array of block nodes:
+
+```typescript
+import { flatten } from "datamark/parse";
+
+const blocks = flatten(doc.root);
+// BlockNode[]
+```
+
+isHeading / isCodeBlock / isTodoItem [#isheading--iscodeblock--istodoitem]
+
+Type guards for common node types:
+
+```typescript
+import { isHeading, isCodeBlock, isTodoItem, extractTodoItems } from "datamark/parse";
+
+if (isHeading(node, 1)) { /* ... */ }
+if (isCodeBlock(node, "typescript")) { /* ... */ }
+if (isTodoItem(node)) { /* ... */ }
+
+const todos = extractTodoItems(doc.root);
+// [{ text: "Buy milk", completed: false, raw: "[ ] Buy milk" }]
+```
+
+Type guards [#type-guards]
+
+```typescript
+import { isSection, isBlockNode, isInlineNode, isParentNode } from "datamark/parse";
+
+if (isSection(node)) {
+  console.log(node.heading?.depth);
+}
+
+if (isParentNode(node)) {
+  console.log(node.children.length);
+}
+```
+
+
+# YAML
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+datamark uses the `yaml` package internally for frontmatter handling. These helpers are exposed for cases where you need them standalone.
+
+```typescript
+import { parseYaml, stringifyYaml, YamlParseError } from "datamark/parse";
+
+const parsed = parseYaml("title: Hello\ntags:\n  - a\n  - b");
+
+const stringified = stringifyYaml({ title: "Hello", tags: ["a", "b"] });
+
+const nestedParsed = parseYaml(`meta:
+  author: Ada
+  date: 2026-06-01`);
+```
+
+parseYaml() [#parseyaml]
+
+```typescript
+import { parseYaml } from "datamark/parse";
+
+const data = parseYaml("title: Hello\ntags:\n  - a\n  - b");
+// { title: "Hello", tags: ["a", "b"] }
+```
+
+stringifyYaml() [#stringifyyaml]
+
+```typescript
+import { stringifyYaml } from "datamark/stringify";
+
+const yaml = stringifyYaml({ title: "Hello", tags: ["a", "b"] });
+// "title: Hello\ntags:\n  - a\n  - b\n"
+```
+
+YamlParseError [#yamlparseerror]
+
+Invalid YAML throws `YamlParseError`:
+
+```typescript
+import { YamlParseError } from "datamark/parse";
+
+try {
+  parseYaml("not: [valid yaml");
+} catch (err) {
+  if (err instanceof YamlParseError) {
+    console.error(err.message);
+  }
+}
+```
+
+<Callout type="info">
+  You usually don't need these directly. `parse()` handles YAML parsing automatically.
+</Callout>
 
 
 # Quickstart
@@ -1159,56 +1650,92 @@ Parse your first Markdown document into a typed object in three steps. About 5 m
     Create a file that describes how your Markdown is structured:
 
     ```typescript
-    import { datamark, heading, markdown, codeBlock, todoItem, inlineText, textContent, extractTodoItems, splitByCombinator } from "datamark";
+    import { datamark } from "datamark";
+    import { findAll, inlineText, textContent, isCodeBlock } from "datamark/parse";
+    import { frontmatter, heading, paragraph, codeBlock } from "datamark/stringify";
     import * as z from "zod";
 
-    const PlanFormat = datamark({
-      schema: z.object({
-        id: z.string(),
-        title: z.string(),
-        steps: z.array(z.object({
-          title: z.string(),
+    const PlanFrontmatterSchema = z.object({ id: z.string() });
+
+    const PlanSchema = z.object({
+      id: z.string(),
+      title: z.string(),
+      steps: z.array(
+        z.object({
           description: z.string(),
           scripts: z.array(z.string()),
-        })),
-      }),
+        })
+      ),
+    });
 
-      *parse(doc) {
-        const fm = yield* doc.frontmatter();
-        const titleNode = yield* doc.consume(heading(1));
-        const steps = yield* doc.consume(splitByCombinator(heading(2)), function* (subdoc) {
-          const h2 = yield* subdoc.consume(heading(2));
-          const body = yield* subdoc.consume(rest());
-          const scripts = body
-            .filter((n) => n.type === "code")
-            .map((n: any) => n.value);
-          return {
-            title: inlineText(h2.children),
-            description: textContent(body),
-            scripts,
-          };
-        });
+    const PlanFormat = datamark({
+      frontmatterSchema: PlanFrontmatterSchema,
+      schema: PlanSchema,
 
-        return { id: (fm as any)?.id ?? "", title: inlineText(titleNode.children), steps };
+      parse(doc) {
+        const id = doc.frontmatter.id;
+        const titleSection = doc.root.children.find((n) => n.type === "section") as any;
+        const title = titleSection ? inlineText(titleSection.heading.children) : "";
+
+        const steps = titleSection
+          ? (titleSection.children.filter((n: any) => n.type === "section") as any[]).map(
+              (section) => {
+                const scripts = findAll(section, (n) => isCodeBlock(n, "javascript")).map(
+                  (n: any) => n.value
+                );
+                const description = textContent(section).trim();
+                return { description, scripts };
+              }
+            )
+          : [];
+
+        return { id, title, steps };
       },
 
-      *stringify(doc, data) {
-        yield* doc.emitFrontmatter({ id: data.id, title: data.title });
-        yield* heading(1, data.title);
+      stringify(data) {
+        let md = frontmatter({ id: data.id }) + heading(data.title) + "\n\n";
         for (const step of data.steps) {
-          yield* heading(2, "Step");
-          if (step.description) yield* markdown(step.description);
-          for (const s of step.scripts) yield* codeBlock("javascript", s);
+          md += heading("Step", 2) + "\n\n" + paragraph(step.description) + "\n\n";
+          for (const script of step.scripts) {
+            md += codeBlock(script, "javascript") + "\n\n";
+          }
         }
+        return md;
       },
     });
+
+    const planMarkdown = `---
+    id: plan-001
+    ---
+    # Q3 Roadmap
+
+    ## Step
+
+    Set up the project.
+
+    \`\`\`javascript
+    npm init -y
+    \`\`\`
+
+    ## Step
+
+    Implement the core features.`;
+    ```
+
+    ```typescript
+    const result = PlanFormat.parse(planMarkdown);
+    console.log(result.id);     // "plan-001"
+    console.log(result.title);  // "Q3 Roadmap"
+    console.log(result.steps[0].description); // "Set up the project."
     ```
   </Step>
 
   <Step>
     Parse a document [#parse-a-document]
 
-    ````typescript
+    ```typescript
+    import { PlanFormat } from "./plan-format";
+
     const markdown = `---
     id: plan-001
     ---
@@ -1233,29 +1760,423 @@ Parse your first Markdown document into a typed object in three steps. About 5 m
     //   id: "plan-001",
     //   title: "Q3 Roadmap",
     //   steps: [
-    //     { title: "Set up project scaffolding", description: "Install dependencies.\n\n```javascript\nnpm init -y\n```", scripts: ["npm init -y"] },
+    //     { title: "Set up project scaffolding", description: "Install dependencies.", scripts: ["npm init -y"] },
     //     { title: "Implement core features", description: "Build the main functionality.", scripts: [] },
     //   ],
     // }
-    ````
+    ```
   </Step>
 </Steps>
 
 What happened? [#what-happened]
 
-1. `parse` turned the raw Markdown string into a typed AST.
-2. Your `parse` generator consumed that AST step by step using combinators.
-3. `doc.consume(splitByCombinator(heading(2)), generator)` split the document into H2-delimited chunks and ran your generator on each one.
-4. The final `return` value was validated against your Zod schema.
+1. `parse` turned the raw Markdown string into a typed AST with a section tree.
+2. Your `parse` function traversed the AST using utility functions like `findAll`, `textContent`, and `isCodeBlock`.
+3. The section tree made it easy to iterate over H2-delimited sections.
+4. The final return value was validated against your Zod schema.
 
 Where to go next [#where-to-go-next]
 
-| Goal                    | Link                                                  |
-| ----------------------- | ----------------------------------------------------- |
-| Understand how it works | [Format SDK](/docs/explanation/template-system)       |
-| Learn all combinators   | [Parse Combinators](/docs/template/parse-combinators) |
-| Look up core functions  | [AST SDK](/docs/core)                                 |
-| See more examples       | [Examples](/docs/examples)                            |
+| Goal                          | Link                                           |
+| ----------------------------- | ---------------------------------------------- |
+| Understand how it works       | [The AST](/docs/explanation/ast)               |
+| Learn about the format system | [Format SDK](/docs/template/datamark-function) |
+| Look up core functions        | [Parse SDK](/docs/parse)                       |
+| See more examples             | [Examples](/docs/examples)                     |
+
+
+# Builder Primitives
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The `datamark/stringify` subpath exports builder primitives — pure functions that take data and return Markdown strings. Use them instead of raw string concatenation to keep serialization readable, type-safe, and free of escaping bugs.
+
+<Callout type="info">
+  All builders are pure functions. They return strings, not AST nodes. Compose them with `join("\n\n")` or template literals.
+</Callout>
+
+Block builders [#block-builders]
+
+frontmatter(data) [#frontmatterdata]
+
+Build a YAML frontmatter fence from a data object.
+
+```typescript
+import { frontmatter } from "datamark/stringify";
+
+frontmatter({ title: "Hello", tags: ["a", "b"] })
+// "---\ntitle: Hello\ntags:\n  - a\n  - b\n---\n"
+```
+
+heading(text, depth?) [#headingtext-depth]
+
+Build a Markdown heading. Depth defaults to `1` and is clamped to `1–6`.
+
+```typescript
+import { heading } from "datamark/stringify";
+
+heading("Title")       // "# Title"
+heading("Subtitle", 2) // "## Subtitle"
+```
+
+paragraph(text) [#paragraphtext]
+
+Build a paragraph. Returns the text as-is.
+
+```typescript
+import { paragraph } from "datamark/stringify";
+
+paragraph("This is a paragraph.") // "This is a paragraph."
+```
+
+codeBlock(code, lang?) [#codeblockcode-lang]
+
+Build a fenced code block.
+
+````typescript
+import { codeBlock } from "datamark/stringify";
+
+codeBlock("const x = 1;", "typescript")
+// "```typescript\nconst x = 1;\n```"
+````
+
+list(items, ordered?, start?) [#listitems-ordered-start]
+
+Build a list from an array of item strings.
+
+```typescript
+import { list } from "datamark/stringify";
+
+list(["First", "Second"])      // "- First\n- Second"
+list(["A", "B"], true)         // "1. A\n2. B"
+list(["C", "D"], true, 3)      // "3. C\n4. D"
+```
+
+Multi-line items are indented correctly:
+
+```typescript
+import { list } from "datamark/stringify";
+
+list(["First line\nSecond line", "Another"])
+// "- First line\n  Second line\n- Another"
+```
+
+blockquote(text) [#blockquotetext]
+
+Build a blockquote.
+
+```typescript
+import { blockquote } from "datamark/stringify";
+
+blockquote("A wise quote.")
+// "> A wise quote."
+```
+
+Multi-line text gets a `> ` prefix on every line:
+
+```typescript
+import { blockquote } from "datamark/stringify";
+
+blockquote("Line one\nLine two")
+// "> Line one\n> Line two"
+```
+
+horizontalRule() [#horizontalrule]
+
+Build a horizontal rule.
+
+```typescript
+import { horizontalRule } from "datamark/stringify";
+
+horizontalRule() // "---"
+```
+
+Inline builders [#inline-builders]
+
+strong(text) [#strongtext]
+
+Wrap text in bold.
+
+```typescript
+import { strong } from "datamark/stringify";
+
+strong("bold") // "**bold**"
+```
+
+em(text) [#emtext]
+
+Wrap text in italics.
+
+```typescript
+import { em } from "datamark/stringify";
+
+em("italic") // "*italic*"
+```
+
+codeSpan(text) [#codespantext]
+
+Wrap text in inline code.
+
+```typescript
+import { codeSpan } from "datamark/stringify";
+
+codeSpan("foo") // "`foo`"
+```
+
+link(text, href, title?) [#linktext-href-title]
+
+Build a Markdown link.
+
+```typescript
+import { link } from "datamark/stringify";
+
+link("Docs", "https://example.com")
+// "[Docs](https://example.com)"
+
+link("Docs", "https://example.com", "API Docs")
+// "[Docs](https://example.com \"API Docs\")"
+```
+
+image(alt, src, title?) [#imagealt-src-title]
+
+Build a Markdown image.
+
+```typescript
+import { image } from "datamark/stringify";
+
+image("Logo", "/logo.png")
+// "![Logo](/logo.png)"
+
+image("Logo", "/logo.png", "Company logo")
+// "![Logo](/logo.png \"Company logo\")"
+```
+
+strikethrough(text) [#strikethroughtext]
+
+Build strikethrough text.
+
+```typescript
+import { strikethrough } from "datamark/stringify";
+
+strikethrough("deleted") // "~~deleted~~"
+```
+
+Composing a full document [#composing-a-full-document]
+
+Builder primitives are pure functions that return strings. Compose them with `Array.join` or template literals:
+
+```typescript
+import {
+  frontmatter,
+  heading,
+  paragraph,
+  codeBlock,
+  list,
+  strong,
+} from "datamark/stringify";
+
+const markdown = [
+  frontmatter({ title: "API Guide", version: "1.0" }),
+  heading("Authentication", 2),
+  paragraph(`Use ${strong("Bearer tokens")} for all requests.`),
+  codeBlock("fetch('/api', { headers: { Authorization: 'Bearer ...' } });", "javascript"),
+  heading("Endpoints", 2),
+  list(["GET /users", "POST /users", "DELETE /users/:id"]),
+].join("\n\n");
+```
+
+This produces clean, well-formatted Markdown without manual escaping or fence counting.
+
+
+# Document Serialization
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The Stringify SDK provides two ways to turn AST data back into Markdown: `stringify()` for full documents, and `toMarkdown()` for individual nodes.
+
+stringify(doc) [#stringifydoc]
+
+Serializes a complete `Document` back to a Markdown string.
+
+```typescript
+import { parse, stringify } from "datamark";
+
+const doc = parse(`
+---
+title: Hello
+---
+
+# Hello World
+
+This is the first paragraph.
+
+## Section
+
+More content here.
+`);
+
+const output = stringify(doc);
+// ---
+// title: Hello
+// ---
+//
+// # Hello World
+//
+// This is the first paragraph.
+//
+// ## Section
+//
+// More content here.
+```
+
+<Callout type="info">
+  `stringify()` flattens the section tree before serializing. The result is a clean Markdown string with frontmatter when present.
+</Callout>
+
+toMarkdown(node) [#tomarkdownnode]
+
+Serializes a single AST node to Markdown. Useful when you need to output a subset of the tree.
+
+```typescript
+import { toMarkdown } from "datamark/stringify";
+
+const headingNode = { type: "heading", depth: 2, children: [{ type: "text", value: "Title" }] };
+toMarkdown(headingNode); // "## Title"
+```
+
+`toMarkdown` accepts a single `Node` or an array of `BlockNode[]` and returns the corresponding Markdown string.
+
+Round-trip [#round-trip]
+
+Parse and stringify are reversible for most Markdown:
+
+```typescript
+import { parse, stringify } from "datamark";
+
+const input = "# Title\n\nBody text";
+const doc = parse(input);
+const output = stringify(doc);
+
+console.log(output); // "# Title\n\nBody text\n"
+```
+
+<Callout type="warning">
+  Positions may shift slightly on roundtrip because `toMarkdown` re-serializes from the AST rather than preserving the original raw text. Whitespace and exact indentation are normalized.
+</Callout>
+
+stringifyYaml(data) [#stringifyyamldata]
+
+For cases where you need YAML output without a full frontmatter fence, `stringifyYaml` produces clean YAML from a JavaScript object:
+
+```typescript
+import { stringifyYaml } from "datamark/stringify";
+
+stringifyYaml({ title: "Hello", tags: ["a", "b"] })
+// "title: Hello\ntags:\n  - a\n  - b\n"
+```
+
+This is the same function used internally by `frontmatter()`.
+
+Building documents from scratch [#building-documents-from-scratch]
+
+When you need full control over output, combine builder primitives with `stringify()`:
+
+```typescript
+import { parse } from "datamark";
+import { heading, paragraph, list } from "datamark/stringify";
+
+function buildReport(data: { title: string; items: string[] }) {
+  const markdown = [
+    heading(data.title, 2),
+    paragraph(`Generated on ${new Date().toISOString()}`),
+    list(data.items),
+  ].join("\n\n");
+
+  // If you need a Document object, parse it back
+  return parse(markdown);
+}
+```
+
+For format definitions, this is usually handled inside the `stringify` function passed to `datamark()`.
+
+
+# Stringify SDK
+
+
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+The Stringify SDK turns typed data and AST nodes back into Markdown strings. It is the inverse of the [Parse SDK](/docs/parse): where `parse()` consumes Markdown, the Stringify SDK produces it.
+
+Use it directly when you need to build Markdown output from structured data, or as the serialization layer inside a [Format SDK](/docs/template) format definition.
+
+<Cards>
+  <Card title="Builder Primitives" description="heading(), list(), codeBlock(), frontmatter(), strong(), link(), and more" href="/docs/stringify/builders" />
+
+  <Card title="Document Serialization" description="stringify(), toMarkdown(), and round-trip guarantees" href="/docs/stringify/document-serialization" />
+</Cards>
+
+What the Stringify SDK provides [#what-the-stringify-sdk-provides]
+
+| Capability                 | Functions                                                                                                |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Block builders**         | `frontmatter()`, `heading()`, `paragraph()`, `codeBlock()`, `list()`, `blockquote()`, `horizontalRule()` |
+| **Inline builders**        | `strong()`, `em()`, `codeSpan()`, `link()`, `image()`, `strikethrough()`                                 |
+| **Document serialization** | `stringify()`, `toMarkdown()`                                                                            |
+| **YAML helpers**           | `stringifyYaml()`                                                                                        |
+
+Two ways to use it [#two-ways-to-use-it]
+
+1. Builder primitives [#1-builder-primitives]
+
+Compose Markdown strings from data without raw string concatenation:
+
+```typescript
+import { frontmatter, heading, paragraph, list, codeBlock } from "datamark/stringify";
+
+const markdown = [
+  frontmatter({ title: "API Guide" }),
+  heading("Authentication", 2),
+  paragraph("Use Bearer tokens for all requests."),
+  codeBlock("fetch('/api', { headers: { Authorization: 'Bearer ...' } });", "javascript"),
+].join("\n\n");
+```
+
+2. Document serialization [#2-document-serialization]
+
+Serialize a full `Document` AST back to Markdown:
+
+```typescript
+import { stringify } from "datamark";
+
+const output = stringify(doc);
+// Clean Markdown with frontmatter, headings, and all content restored
+```
+
+How the layers fit together [#how-the-layers-fit-together]
+
+```
+    Parse SDK      →  parse(), findAll(), textContent(), isCodeBlock() …
+        ↑
+   Format SDK      →  datamark({ schema, parse, stringify, examples })
+        ↑
+    Stringify SDK  →  heading(), list(), codeBlock(), frontmatter() …
+```
+
+The Format SDK sits between the two: it uses the Parse SDK to turn Markdown into data, and the Stringify SDK to turn data back into Markdown.
+
+When to use the Stringify SDK directly [#when-to-use-the-stringify-sdk-directly]
+
+* You need to generate Markdown output from structured data
+* You want type-safe builder functions instead of template strings
+* You need to serialize individual AST nodes, not full documents
+* You're building custom tooling that produces Markdown
+
+For round-trip format definitions with validation, the [Format SDK](/docs/template) is the better starting point.
 
 
 # datamark()
@@ -1264,231 +2185,304 @@ Where to go next [#where-to-go-next]
 
 import { Callout } from 'fumadocs-ui/components/callout';
 
-`datamark(config)` creates a reusable `Format<T>` that can parse Markdown into typed objects and serialize them back.
+`datamark()` creates a reusable format that parses Markdown into typed objects and optionally serializes them back. It is the single entry point to the Format SDK.
 
 Signature [#signature]
 
 ```typescript
-function datamark<T>(config: FormatConfig<T>): Format<T>;
+function datamark<T = unknown, F = Record<string, unknown>>(
+  config: FormatConfig<T, F>
+): Format<T>;
+```
+
+* `T` — the output type of your format. Inferred from `schema` if provided, otherwise from `parse`'s return type.
+* `F` — the frontmatter type. Inferred from `frontmatterSchema` if provided, otherwise defaults to `Record<string, unknown>`.
+
+Quick example [#quick-example]
+
+```typescript
+import { datamark } from "datamark";
+import { inlineText } from "datamark/parse";
+import * as z from "zod";
+
+const BasicSchema = z.object({ title: z.string() });
+
+const BasicFormat = datamark({
+  schema: BasicSchema,
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    return { title: h1 ? inlineText(h1.heading.children) : "" };
+  },
+});
+```
+
+```typescript
+const result = BasicFormat.parse("# Hello\n\nBody");
+// result is typed as { title: string }
 ```
 
 FormatConfig [#formatconfig]
 
-| Property      | Type                                       | Required | Description                       |
-| ------------- | ------------------------------------------ | -------- | --------------------------------- |
-| `schema`      | `StandardSchemaV1`                         | No       | Validates parsed results          |
-| `description` | `string`                                   | No       | Human-readable format description |
-| `examples`    | `Array<string \| FormatExample>`           | No       | Examples for docs and testing     |
-| `parse`       | `(doc: ParseContext) => Generator`         | **Yes**  | Generator that consumes the AST   |
-| `stringify`   | `(doc: EmitContext, data: T) => Generator` | No       | Generator that emits nodes        |
+| Property            | Type                                     | Required | Description                                                                                                             |
+| ------------------- | ---------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `parse`             | `(doc: DocumentWithFrontmatter<F>) => T` | ✅        | Turns a parsed Markdown document into your typed data. `doc.frontmatter` is typed when `frontmatterSchema` is provided. |
+| `stringify`         | `(data: T) => string`                    | —        | Turns typed data back into a Markdown string.                                                                           |
+| `schema`            | `StandardSchemaV1<any, T>`               | —        | Validates parsed output. `T` is inferred from the schema's output type.                                                 |
+| `frontmatterSchema` | `StandardSchemaV1<any, F>`               | —        | Validates frontmatter before `parse` runs. `F` is inferred from the schema's output type.                               |
+| `description`       | `string`                                 | —        | Human-readable description for docs.                                                                                    |
+| `examples`          | `FormatExample[]`                        | —        | Inline examples for testing and documentation.                                                                          |
+| `docs`              | `FormatDocs`                             | —        | Extra metadata for generated docs.                                                                                      |
 
-Format [#format]
+<Callout type="info">
+  When `frontmatterSchema` is configured, `parse()` validates frontmatter **before** your `parse` function runs. If validation fails, `parse()` throws `ValidationError` immediately — your `parse` function never sees bad frontmatter.
+</Callout>
 
-| Method                   | Returns         | Description                                 |
-| ------------------------ | --------------- | ------------------------------------------- |
-| `parse(content: string)` | `T`             | Parse Markdown, validate if schema provided |
-| `stringify(data: T)`     | `string`        | Serialize data back to Markdown             |
-| `trace(content: string)` | `ParseTrace<T>` | Step-by-step consumption log                |
-| `docs()`                 | `FormatDocs`    | Static documentation                        |
-| `test()`                 | `TestResult`    | Validate examples                           |
+Format methods [#format-methods]
 
-Example [#example]
+parse(content: string): T [#parsecontent-string-t]
+
+Parses a Markdown string, validates frontmatter (if `frontmatterSchema`), runs your `parse` function, and validates the output (if `schema`). Returns typed data.
+
+stringify(data: T): string [#stringifydata-t-string]
+
+Serializes data back to Markdown using your `stringify` function.
+
+<Callout type="warning">
+  Throws at runtime if `stringify` was not configured.
+</Callout>
+
+test(): TestResult [#test-testresult]
+
+Runs all configured examples through `parse`, frontmatter validation, and schema validation. Returns `{ passed: boolean, failures: Array<{ exampleIndex, example, error }> }`.
+
+docs(): FormatDocs [#docs-formatdocs]
+
+Returns metadata: description, examples, and schema output type.
+
+Types reference [#types-reference]
+
+FormatExample [#formatexample]
 
 ```typescript
-import { datamark, heading, splitByCombinator } from "datamark";
+interface FormatExample {
+  text: string;
+  data?: unknown;
+}
+```
+
+String examples test parseability only. Object examples with `data` are compared for exact equality.
+
+DocumentWithFrontmatter<F> [#documentwithfrontmatterf]
+
+A `Document` where `frontmatter` is typed as `F | null` instead of `Record<string, unknown> | null`. This type is automatically applied to the `doc` parameter in your `parse` function when `frontmatterSchema` is configured.
+
+FormatDocs [#formatdocs]
+
+```typescript
+interface FormatDocs {
+  description?: string;
+  examples?: Array<string | FormatExample>;
+  structure?: unknown;
+  schema?: unknown;
+}
+```
+
+
+# Frontmatter in Formats
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+Frontmatter is YAML metadata between `---` fences at the top of a Markdown file. The Format SDK makes it fully typed and validated.
+
+Reading frontmatter [#reading-frontmatter]
+
+When you call `parse(content)`, frontmatter is extracted and parsed automatically. In a format definition, access it via `doc.frontmatter`:
+
+```typescript
+import { datamark } from "datamark";
+
+const MyFormat = datamark({
+  parse(doc) {
+    const title = doc.frontmatter?.title as string; // Record<string, unknown> — needs cast
+    return { title: title ?? "" };
+  },
+});
+```
+
+Without a schema, `doc.frontmatter` is `Record<string, unknown> | null`. Provide a `frontmatterSchema` and it becomes fully typed.
+
+Validating frontmatter [#validating-frontmatter]
+
+Provide a `frontmatterSchema` and `doc.frontmatter` becomes typed:
+
+```typescript
+import { datamark } from "datamark";
 import * as z from "zod";
 
-const PlanFormat = datamark({
-  schema: z.object({
-    id: z.string(),
-    title: z.string(),
-    steps: z.array(z.object({
-      description: z.string(),
-      scripts: z.array(z.string()),
-    })),
+const FrontmatterSchema = z.object({
+  version: z.string(),
+  author: z.string(),
+});
+
+const DataSchema = z.object({
+  version: z.string(),
+  author: z.string(),
+  title: z.string(),
+});
+
+const FrontmatterFormat = datamark({
+  frontmatterSchema: FrontmatterSchema,
+  schema: DataSchema,
+  parse(doc) {
+    const fm = doc.frontmatter;
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const title = h1 ? (h1.heading.children[0] as any)?.value ?? "" : "";
+    return { version: fm.version, author: fm.author, title };
+  },
+});
+
+const frontmatterMarkdown = `---
+version: 1.0.0
+author: Ada
+---
+
+# Release Notes`;
+```
+
+```typescript
+const result = FrontmatterFormat.parse(frontmatterMarkdown);
+console.log(result.version); // "1.0.0"
+```
+
+<Callout type="info">
+  `frontmatterSchema` is validated **before** your `parse` function runs. If the document lacks frontmatter and your schema does not allow `null`, `parse()` throws `ValidationError` immediately. If you need frontmatter to be optional, use an optional schema such as `z.object({ ... }).optional()`.
+</Callout>
+
+Pattern: frontmatter-only formats [#pattern-frontmatter-only-formats]
+
+Some formats use frontmatter as the primary data source and treat the body as secondary:
+
+```typescript
+import { parse, datamark } from "datamark";
+import { textContent, inlineText } from "datamark/parse";
+import { heading, paragraph } from "datamark/stringify";
+import * as z from "zod";
+
+// Pattern: frontmatter-only format
+const ConfigFormat = datamark({
+  frontmatterSchema: z.object({
+    name: z.string(),
+    version: z.string(),
+    features: z.array(z.string()),
   }),
-
-  description: "A project plan with frontmatter, title, and step sections.",
-
-  examples: [
-    {
-      text: `---\nid: plan-001\n---\n# Roadmap\n\n## Step\n\nSetup.\n\n\`\`\`js\nnpm init\n\`\`\``,
-      data: {
-        id: "plan-001",
-        title: "Roadmap",
-        steps: [{ description: "Setup.", scripts: ["npm init"] }],
-      },
-    },
-  ],
-
-  *parse(doc) {
-    const fm = yield* doc.frontmatter();
-    const title = yield* doc.consume(heading(1));
-    const sections = yield* doc.consume(splitByCombinator(heading(2)));
-    const steps = sections.map((section) => ({
-      description: section.map((n: any) => n.value ?? "").join("\n").trim(),
-      scripts: section
-        .filter((n: any) => n.type === "code")
-        .map((n: any) => n.value),
-    }));
-    return { id: (fm as any)?.id ?? "", title: inlineText(title.children), steps };
+  schema: z.object({
+    config: z.object({
+      name: z.string(),
+      version: z.string(),
+      features: z.array(z.string()),
+    }),
+    readme: z.string().optional(),
+  }),
+  parse(doc) {
+    const config = doc.frontmatter;
+    const readme = textContent(doc.root).trim() || undefined;
+    return { config, readme };
   },
+});
 
-  *stringify(doc, data) {
-    yield* doc.emitFrontmatter({ id: data.id, title: data.title });
-    yield* heading(1, data.title);
-    for (const step of data.steps) {
-      yield* heading(2, "Step");
-      if (step.description) yield* markdown(step.description);
-      for (const s of step.scripts) yield* codeBlock("javascript", s);
-    }
+// Pattern: optional frontmatter
+const OptionalFrontmatterFormat = datamark({
+  frontmatterSchema: z.object({ title: z.string() }).nullable(),
+  schema: z.object({ title: z.string() }),
+  parse(doc) {
+    const title =
+      doc.frontmatter?.title ??
+      inlineText(
+        (
+          doc.root.children.find((n) => n.type === "section") as any
+        )?.heading?.children ?? []
+      );
+    return { title };
+  },
+  stringify(data) {
+    return heading(data.title) + "\n\n" + paragraph("Body content.") + "\n";
+  },
+});
+
+// Sample documents
+const configDoc = `---
+name: my-app
+version: "1.0.0"
+features:
+  - auth
+  - api
+---
+
+This app does things.
+`;
+
+const titledDoc = `---
+title: Hello World
+---
+
+Body here.
+`;
+
+const untitledDoc = `# Fallback Title\n\nBody here.`;
+```
+
+```typescript
+const result = ConfigFormat.parse(configDoc);
+console.log(result.config.name);     // "my-app"
+console.log(result.config.version);  // "1.0.0"
+console.log(result.readme);          // "This app does things."
+```
+
+Pattern: optional frontmatter [#pattern-optional-frontmatter]
+
+Not every document has frontmatter. Handle it gracefully with a nullable schema:
+
+```typescript
+const MyFormat = datamark({
+  frontmatterSchema: z.object({ title: z.string() }).nullable(),
+  parse(doc) {
+    const title = doc.frontmatter?.title
+      ?? inlineText((doc.root.children.find(n => n.type === "section") as any)?.heading?.children ?? []);
+    return { title };
   },
 });
 ```
 
-<Callout type="info">
-  When `stringify` is omitted, calling `stringify()` on the format throws a clear error telling you to provide one.
-</Callout>
+Error handling [#error-handling]
 
-
-# docs()
-
-
-
-`docs()` generates static documentation for your format by running the parse generator against a synthetic document where every combinator succeeds with a placeholder value.
-
-Usage [#usage]
+If the YAML itself is malformed, `parse()` throws `FrontmatterError` before your format runs:
 
 ```typescript
-const docs = PlanFormat.docs();
+import { parse } from "datamark";
+import { FrontmatterError } from "datamark/parse";
 
-console.log(docs.description); // "A project plan..."
-console.log(docs.examples); // configured examples
-console.log(docs.schema); // JSON schema if provided
-console.log(docs.steps); // array of combinator descriptions
+try {
+  parse("---\nbad: [\n---\nBody");
+} catch (err) {
+  if (err instanceof FrontmatterError) {
+    console.error("YAML is broken:", err.message);
+  }
+}
 ```
 
-DocsStep [#docsstep]
-
-Each step has:
-
-| Property      | Type        | Description             |
-| ------------- | ----------- | ----------------------- |
-| `combinator`  | `string`    | Name, e.g. `heading(1)` |
-| `description` | `string?`   | From `.description()`   |
-| `examples`    | `string[]?` | From `.examples()`      |
-
-Adding metadata [#adding-metadata]
-
-You can attach descriptions and examples to yieldables for richer documentation:
+If the YAML is valid but does not match your `frontmatterSchema`, you get `ValidationError` with structured issue data:
 
 ```typescript
-import { heading, splitByCombinator } from "datamark";
+import { ValidationError } from "datamark/parse";
 
-const h1 = heading(1).description("The document title");
-const sections = splitByCombinator(heading(2))
-  .description("Split into step sections")
-  .examples(["## Step", "## Another Step"]);
-```
-
-<Callout type="info">
-  Metadata fluent methods are available on all yieldables returned by combinators.
-</Callout>
-
-
-# Emit Combinators
-
-
-
-Emit combinators add nodes to the output document. They are used with `yield*` inside a `stringify` generator.
-
-Context methods [#context-methods]
-
-doc.emitFrontmatter(data) [#docemitfrontmatterdata]
-
-Set the document's frontmatter. Should be called at most once.
-
-```typescript
-yield* doc.emitFrontmatter({ id: data.id, title: data.title });
-```
-
-doc.emitNode(node) [#docemitnodenode]
-
-Push a raw `BlockNode` into the output. Use when you need full control.
-
-```typescript
-doc.emitNode({
-  type: "paragraph",
-  children: [{ type: "text", value: "Hello", raw: "Hello" }],
-  raw: "Hello",
-});
-```
-
-Combinators [#combinators]
-
-heading(depth, text) [#headingdepth-text]
-
-Emit a heading.
-
-```typescript
-yield* heading(1, data.title);
-```
-
-paragraph(text) [#paragraphtext]
-
-Emit a paragraph.
-
-```typescript
-yield* paragraph("This is a paragraph.");
-```
-
-codeBlock(lang, code) [#codeblocklang-code]
-
-Emit a code block.
-
-```typescript
-yield* codeBlock("typescript", "const x = 1;");
-```
-
-markdown(text) [#markdowntext]
-
-Parse raw Markdown text and emit the resulting nodes. Useful for injecting user content.
-
-```typescript
-yield* markdown(data.description);
-```
-
-todoItem(text, completed) [#todoitemtext-completed]
-
-Emit a todo list item.
-
-```typescript
-yield* todoItem("Write docs", false);
-yield* todoItem("Ship it", true);
-```
-
-hr() [#hr]
-
-Emit a horizontal rule.
-
-```typescript
-yield* hr();
-```
-
-Complete example [#complete-example]
-
-```typescript
-*stringify(doc, data) {
-  yield* doc.emitFrontmatter({ id: data.id });
-  yield* heading(1, data.title);
-  yield* markdown(data.intro);
-  yield* hr();
-  for (const step of data.steps) {
-    yield* heading(2, step.name);
-    yield* markdown(step.description);
-    for (const script of step.scripts) {
-      yield* codeBlock("javascript", script);
-    }
+try {
+  BlogFormat.parse("---\ntitle: 123\n---\n# Hello"); // title should be string
+} catch (err) {
+  if (err instanceof ValidationError) {
+    console.log(err.issues);
+    // [{ message: "Expected string, received number", path: ["title"] }]
   }
 }
 ```
@@ -1500,303 +2494,673 @@ Complete example [#complete-example]
 
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
-Reference for the generator-based format system.
+The Format SDK is the high-level layer of datamark. It turns Markdown documents into typed objects — and back again — through reusable, self-testing format definitions.
+
+A **format** is a typed contract: you define a schema, a `parse` function that walks the AST using the [Parse SDK](/docs/parse), and optionally a `stringify` function for round-trip serialization using builder primitives from `datamark/stringify`. Add inline `examples` and your format becomes self-documenting and self-testing.
 
 <Cards>
-  <Card title="datamark()" description="The format factory and FormatConfig options" href="/docs/template/datamark-function" />
+  <Card title="datamark()" description="The format factory — typed config, parse, stringify, test, docs" href="/docs/template/datamark-function" />
 
-  <Card title="Parse Combinators" description="heading, splitBy, many, optional, until, rest" href="/docs/template/parse-combinators" />
+  <Card title="Frontmatter" description="Reading, validating, and typing frontmatter with schemas" href="/docs/template/frontmatter" />
 
-  <Card title="Emit Combinators" description="heading, codeBlock, markdown, todoItem, hr" href="/docs/template/emit-combinators" />
+  <Card title="Parsing Patterns" description="Navigate the AST, extract data, map Markdown to objects" href="/docs/template/parsing" />
 
-  <Card title="trace()" description="Step-by-step debugging of format consumption" href="/docs/template/trace" />
+  <Card title="Stringify" description="Serialize back to Markdown with builder primitives from datamark/stringify" href="/docs/template/stringify" />
 
-  <Card title="docs()" description="Auto-generated format documentation" href="/docs/template/docs" />
-
-  <Card title="test()" description="Example-driven format validation" href="/docs/template/test" />
+  <Card title="Testing" description="Inline examples, self-testing formats, and CI integration" href="/docs/template/testing" />
 </Cards>
 
+What the Format SDK provides [#what-the-format-sdk-provides]
 
-# Parse Combinators
+| Capability                   | Description                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------------- |
+| **Typed frontmatter**        | `frontmatterSchema` validates and types `doc.frontmatter` before your `parse` function runs |
+| **Output validation**        | `schema` validates the return value of `parse()` automatically                              |
+| **Round-trip serialization** | `stringify` turns typed data back into Markdown via `datamark/stringify`                    |
+| **Self-testing**             | `examples` are validated by `.test()` — add them once, test forever                         |
+| **Builder primitives**       | `heading()`, `list()`, `codeBlock()`, `frontmatter()` and more from `datamark/stringify`    |
+| **Standard Schema support**  | Works with Zod, Valibot, ArkType, TypeBox, and any Standard Schema v1 validator             |
+
+How the layers fit together [#how-the-layers-fit-together]
+
+```
+datamark/stringify  →  heading(), list(), codeBlock(), frontmatter() …
+        ↑
+   Format SDK      →  datamark({ schema, parse, stringify, examples })
+        ↑
+    Parse SDK      →  parse(), findAll(), textContent(), isCodeBlock() …
+        ↑
+    marked + yaml  →  Markdown lexer + YAML parser
+```
+
+The Format SDK is built on top of the Parse SDK. Every `parse` function receives a `Document` from the Parse SDK and uses its utilities (`findAll`, `textContent`, `isCodeBlock`, etc.) to extract data. Every `stringify` function uses `datamark/stringify` primitives to reconstruct Markdown cleanly.
+
+For raw AST manipulation without schemas or serialization, use the [Parse SDK](/docs/parse) directly.
+
+
+# Parsing Patterns
 
 
 
 import { Callout } from 'fumadocs-ui/components/callout';
 
-Parse combinators consume nodes from the AST and advance the internal cursor. They are used with `yield* doc.consume(...)`.
+Your `parse` function receives a `Document` and returns typed data. This page covers the common patterns for walking the tree and extracting structured content.
 
-Node matchers [#node-matchers]
-
-heading(depth) [#headingdepth]
-
-Match a heading at a specific depth. Returns the full `HeadingNode`.
+The document structure [#the-document-structure]
 
 ```typescript
-const h1 = yield* doc.consume(heading(1));
-console.log(inlineText(h1.children)); // heading text content
+import { parse } from "datamark";
+
+const doc = parse(markdown);
+// doc.frontmatter — parsed YAML or null
+// doc.root — SectionNode containing the full tree
 ```
 
-paragraph() [#paragraph]
-
-Match any paragraph. Returns `ParagraphNode`.
-
 ```typescript
-const p = yield* doc.consume(paragraph());
-```
+import { parse, datamark } from "datamark";
+import {
+  find,
+  findAll,
+  isHeading,
+  isCodeBlock,
+  sectionsAtDepth,
+  sectionsByHeading,
+  splitBy,
+  between,
+  after,
+  before,
+  inlineText,
+  textContent,
+  extractTodoItems,
+} from "datamark/parse";
+import * as z from "zod";
 
-codeBlock(options?) [#codeblockoptions]
+// Sample document for pattern demonstrations
+const doc = parse(`---
+title: API Reference
+---
 
-Match a code block, optionally filtered by language.
+# API Reference
 
-```typescript
-const ts = yield* doc.consume(codeBlock({ lang: "typescript" }));
-console.log(ts.value); // raw code string
-console.log(ts.lang); // "typescript"
-```
+Introduction paragraph.
 
-hr() [#hr]
+## Authentication
 
-Match a horizontal rule.
+Use Bearer tokens.
 
-```typescript
-const rule = yield* doc.consume(hr());
-```
+\`\`\`json
+{ "token": "abc123" }
+\`\`\`
 
-todo() [#todo]
+## Endpoints
 
-Match a list containing todo items. Returns `ListNode`.
+### GET /users
 
-```typescript
-const list = yield* doc.consume(todo());
-```
+Returns a list of users.
 
-Combinator modifiers [#combinator-modifiers]
+### POST /users
 
-optional(matcher) [#optionalmatcher]
+Creates a user.
 
-Returns the value, or `undefined` if it does not match.
+## Parameters
 
-```typescript
-const subtitle = yield* doc.consume(optional(heading(2)));
-// HeadingNode | undefined
-```
+| Name | Type |
+|------|------|
+| id   | number |
 
-many(matcher) [#manymatcher]
+## Action Items
 
-Returns all consecutive matches.
+- [ ] Write tests
+- [x] Update docs
 
-```typescript
-const paragraphs = yield* doc.consume(many(paragraph()));
-// ParagraphNode[]
-```
+Final paragraph.`);
 
-repeat(count, matcher) [#repeatcount-matcher]
+// Finding sections
+const rootSection = doc.root.children.find(
+  (n) => n.type === "section"
+) as any;
+const topSections = rootSection?.children?.filter(
+  (n: any) => n.type === "section"
+) ?? [];
 
-Returns exactly `count` matches. Throws if not enough.
+const firstH1 = find(doc.root, (n) => isHeading(n, 1));
+const h2Sections = sectionsAtDepth(doc.root, 2);
+const paramSections = sectionsByHeading(doc.root, "Parameters");
 
-```typescript
-const [a, b] = yield* doc.consume(repeat(2, paragraph()));
-```
+// Walking subsections
+const subSections = rootSection?.children?.filter(
+  (n: any) => n.type === "section"
+) ?? [];
 
-except(predicate) [#exceptpredicate]
+// Extracting structured data
+const jsonBlocks = findAll(doc.root, (n) => isCodeBlock(n, "json"));
+const allCode = findAll(doc.root, (n) => isCodeBlock(n));
 
-Negates a predicate. Useful with `until()` or `splitBy()`.
+// Lists
+const lists = findAll(doc.root, (n) => n.type === "list") as any[];
 
-```typescript
-const nodes = yield* doc.consume(until(except(heading(2))));
-// consumes until a non-H2 node
-```
+// Tables
+const tables = findAll(doc.root, (n) => n.type === "table") as any[];
+const tableHeaders =
+  tables[0]?.children[0]?.children.map((c: any) =>
+    inlineText(c.children)
+  ) ?? [];
 
-any(...predicates) [#anypredicates]
+// Inline text
+const introPara = rootSection?.children?.find(
+  (n: any) => n.type === "paragraph"
+) as any;
+const introText = introPara ? inlineText(introPara.children) : "";
 
-Returns `true` if any predicate matches.
+// Recursive text
+const allText = textContent(doc.root).trim();
 
-```typescript
-const isBreak = any(heading(2), hr());
-const sections = yield* doc.consume(splitByCombinator(isBreak));
-```
+// Todo items
+const todos = extractTodoItems(doc.root);
 
-all(...predicates) [#allpredicates]
+// Positions
+const titleHeading = find(doc.root, (n) => isHeading(n, 1));
+const titleLine = titleHeading?.position?.start.line;
 
-Returns `true` only if all predicates match.
+// Splitting — flatten first since splitBy operates on flat BlockNode[]
+const flatBlocks = [...doc.root.children];
+const groups = splitBy(flatBlocks, (n) => isHeading(n, 2));
+const afterAuth = after(flatBlocks, (n) => isHeading(n, 2));
+const beforeParams = before(flatBlocks, (n) => isHeading(n, 2));
 
-```typescript
-const isSpecial = all(heading(2), (n) => n.raw.includes("TODO"));
-```
-
-Structural combinators [#structural-combinators]
-
-splitByCombinator(predicate) [#splitbycombinatorpredicate]
-
-Split remaining nodes by a predicate. Returns groups. Matching separator nodes are discarded. Consumes everything.
-
-```typescript
-const sections = yield* doc.consume(splitByCombinator(heading(2)));
-// BlockNode[][] — each group is nodes between H2s
-```
-
-<Callout type="info">
-  `splitByCombinator` is the most common structural combinator. It is the standard way to turn a flat list of nodes into sections. When passed to `consume()` with a generator, the generator runs on each chunk and results are collected into an array.
-</Callout>
-
-until(predicate) [#untilpredicate]
-
-Consume nodes until the predicate matches. Returns consumed nodes; the matched node stays in `remaining`.
-
-```typescript
-const preamble = yield* doc.consume(until(heading(2)));
-// BlockNode[] — everything before the first H2
-```
-
-rest() [#rest]
-
-Consume all remaining nodes.
-
-```typescript
-const leftovers = yield* doc.consume(rest());
-// BlockNode[]
-```
-
-section(depth) [#sectiondepth]
-
-Consume a heading at the given depth plus all body nodes until the next heading of the same depth. The heading is included. Fails if the first remaining node is not a matching heading.
-
-```typescript
-const chunk = yield* doc.consume(section(2));
-// BlockNode[] — heading(2) + body nodes
-```
-
-Accessing remaining nodes [#accessing-remaining-nodes]
-
-You can inspect what's left without consuming:
-
-```typescript
-console.log(doc.remaining.length);
-console.log(doc.remaining[0]?.type);
-```
-
-frontmatter() [#frontmatter]
-
-Returns the frontmatter object. Frontmatter is not part of the cursor — calling it does not advance `remaining`.
-
-```typescript
-const fm = yield* doc.frontmatter();
-// Record<string, unknown> | null
-```
-
-peek() [#peek]
-
-Run a combinator without advancing the parent cursor. Same signature as `consume()`.
-
-```typescript
-const next = yield* doc.peek(heading(1));
-// heading(1) is still in doc.remaining
-```
-
-
-# test()
-
-
-
-`test()` validates all configured examples against your parse generator and schema. It is designed to be run in CI to prevent format drift.
-
-Usage [#usage]
-
-```typescript
-const result = PlanFormat.test();
-
-console.log(result.passed); // boolean
-console.log(result.failures); // TestFailure[]
-```
-
-FormatExample [#formatexample]
-
-Examples can be strings or objects:
-
-```typescript
-const PlanFormat = datamark({
-  examples: [
-    // Just check parseability
-    "---\nid: a\n---\n# Title",
-
-    // Check parseability + exact output
-    {
-      text: "---\nid: a\n---\n# Title",
-      data: { id: "a", title: "Title" },
-    },
-  ],
-  // ...
+// Format using patterns
+const ApiFormat = datamark({
+  schema: z.object({
+    title: z.string(),
+    endpoints: z.array(z.string()),
+    todos: z.array(z.object({ text: z.string(), completed: z.boolean() })),
+  }),
+  parse(parsedDoc) {
+    const title = inlineText(
+      (parsedDoc.root.children.find((n) => n.type === "section") as any)
+        ?.heading?.children ?? []
+    );
+    const endpointSection = sectionsByHeading(parsedDoc.root, "Endpoints")[0];
+    const endpoints = endpointSection
+      ? (findAll(endpointSection, (n) => n.type === "heading") as any[]).map(
+          (h) => inlineText(h.children)
+        )
+      : [];
+    return { title, endpoints, todos: extractTodoItems(parsedDoc.root) };
+  },
 });
 ```
 
-TestFailure [#testfailure]
+`doc.root` is a `SectionNode` that contains the entire document. Its `children` contains both content nodes (paragraphs, code blocks, lists) and nested `SectionNode`s.
 
-When a test fails:
+Finding sections [#finding-sections]
 
-| Property       | Type                      | Description                  |
-| -------------- | ------------------------- | ---------------------------- |
-| `exampleIndex` | `number`                  | Which example failed         |
-| `example`      | `string \| FormatExample` | The original example         |
-| `error`        | `string`                  | Human-readable error message |
+The root contains top-level sections as `SectionNode`s in its `children`:
 
-CI script [#ci-script]
+```typescript
+import { parse, inlineText } from "datamark/parse";
+
+const doc = parse(markdown);
+const rootSection = doc.root.children.find(n => n.type === "section") as SectionNode;
+const topSections = rootSection.children.filter(n => n.type === "section") as SectionNode[];
+
+const firstHeading = topSections[0]?.heading;
+const title = firstHeading ? inlineText(firstHeading.children) : "";
+```
+
+Helper functions [#helper-functions]
+
+```typescript
+import { sectionsAtDepth, sectionsByHeading } from "datamark/parse";
+
+// All h2 sections anywhere in the document
+const h2s = sectionsAtDepth(doc.root, 2);
+
+// All sections whose heading text is exactly "Parameters"
+const paramSections = sectionsByHeading(doc.root, "Parameters");
+```
+
+Walking subsections [#walking-subsections]
+
+Each section can contain more sections. Walk them recursively or split by heading:
+
+```typescript
+import { parse, inlineText } from "datamark/parse";
+
+const doc = parse(markdown);
+const h1 = doc.root.children.find(n => n.type === "section") as SectionNode;
+const subSections = h1.children.filter(n => n.type === "section") as SectionNode[];
+
+for (const section of subSections) {
+  const heading = inlineText(section.heading!.children).toLowerCase();
+  if (heading.includes("description")) {
+    // extract description
+  }
+  if (heading.includes("parameters")) {
+    // extract parameters
+  }
+}
+```
+
+Extracting structured data [#extracting-structured-data]
+
+Code blocks as data [#code-blocks-as-data]
+
+Code blocks are the standard way to embed structured data in Markdown. Extract them by language and parse their contents:
+
+```typescript
+import { findAll, isCodeBlock } from "datamark/parse";
+
+// All JSON code blocks in a section
+const jsonBlocks = findAll(section, n => isCodeBlock(n, "json"));
+for (const block of jsonBlocks) {
+  const data = JSON.parse(block.value);
+}
+
+// All code blocks regardless of language
+const allCode = findAll(section, n => isCodeBlock(n));
+```
+
+Lists [#lists]
+
+Extract list items and their text:
+
+```typescript
+import { findAll, textContent } from "datamark/parse";
+
+const lists = findAll(doc.root, n => n.type === "list") as ListNode[];
+for (const list of lists) {
+  for (const item of list.children) {
+    const text = textContent(item).trim();
+    console.log(text);
+  }
+}
+```
+
+Tables [#tables]
+
+```typescript
+import { findAll, inlineText } from "datamark/parse";
+
+const tables = findAll(doc.root, n => n.type === "table") as TableNode[];
+for (const table of tables) {
+  const rows = table.children;
+  const headers = rows[0].children.map(c => inlineText(c.children));
+  const bodyRows = rows.slice(1).map(row =>
+    row.children.map(c => inlineText(c.children))
+  );
+}
+```
+
+Inline text [#inline-text]
+
+`inlineText()` extracts plain text from inline nodes (paragraphs, headings). It handles bold, italic, links, and images:
+
+```typescript
+import { parse, inlineText } from "datamark/parse";
+
+const doc = parse(markdown);
+const paragraph = doc.root.children.find(n => n.type === "paragraph") as ParagraphNode;
+const text = inlineText(paragraph.children);
+// "Visit the docs at example.com" — link text is preserved, href is not
+```
+
+`textContent()` is the recursive version. It extracts all text from any node:
+
+```typescript
+import { textContent } from "datamark/parse";
+
+const section = doc.root.children.find(n => n.type === "section") as SectionNode;
+const allText = textContent(section).trim();
+```
+
+Todo items [#todo-items]
+
+Use `extractTodoItems()` to find all checkbox items:
+
+```typescript
+import { extractTodoItems } from "datamark/parse";
+
+const todos = extractTodoItems(doc.root);
+for (const todo of todos) {
+  console.log(todo.text, todo.completed);
+}
+```
+
+Positions and source mapping [#positions-and-source-mapping]
+
+Every node carries an optional `position` with start/end line/column. This is useful for pointing to where an error occurred in the source file:
+
+```typescript
+import { find, isHeading } from "datamark/parse";
+
+const heading = find(doc.root, n => isHeading(n, 1));
+if (heading?.position) {
+  console.log(`Title is on line ${heading.position.start.line}`);
+}
+```
+
+<Callout type="info">
+  Positions are computed relative to the original input string, even when frontmatter is stripped. Error messages point to the right place in your source file.
+</Callout>
+
+
+# Stringify & Markdown Primitives
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+`stringify` receives your typed data and returns a Markdown string. A good `stringify` function is the inverse of your `parse` function — round-tripping through `parse(stringify(data))` should give you back equivalent data.
+
+Import path [#import-path]
+
+Markdown builder functions live under `datamark/stringify`, separate from the Parse SDK:
+
+```typescript
+import {
+  heading, paragraph, codeBlock, list, frontmatter
+} from "datamark/stringify";
+```
+
+This keeps your imports explicit: `datamark` for parsing and AST utilities, `datamark/stringify` for serialization.
+
+```typescript
+import {
+  frontmatter,
+  heading,
+  paragraph,
+  codeBlock,
+  list,
+  blockquote,
+  horizontalRule,
+  strong,
+  em,
+  codeSpan,
+  link,
+  image,
+  strikethrough,
+} from "datamark/stringify";
+
+const fm = frontmatter({ title: "Hello", tags: ["a", "b"] });
+const h1 = heading("Title", 1);
+const h2 = heading("Subtitle", 2);
+const p = paragraph("A paragraph of text.");
+const cb = codeBlock("const x = 1;", "typescript");
+const bulletList = list(["First", "Second"]);
+const orderedList = list(["A", "B"], true);
+const quote = blockquote("A wise quote.");
+const hr = horizontalRule();
+const bold = strong("bold");
+const italic = em("italic");
+const code = codeSpan("code");
+const a = link("text", "https://example.com");
+const img = image("alt", "img.png");
+const del = strikethrough("deleted");
+```
+
+The stringify contract [#the-stringify-contract]
+
+Provide `stringify` in your `FormatConfig`:
+
+```typescript
+import { datamark } from "datamark";
+import { heading, paragraph } from "datamark/stringify";
+import * as z from "zod";
+
+const MyFormat = datamark({
+  schema: z.object({ title: z.string(), body: z.string() }),
+  parse(doc) {
+    const title = doc.root.children.find((n: any) => n.type === "heading")?.children?.[0]?.value ?? "";
+    const body = doc.root.children.find((n: any) => n.type === "paragraph")?.children?.[0]?.value ?? "";
+    return { title, body };
+  },
+  stringify(data) {
+    return heading(data.title) + "\n\n" + paragraph(data.body) + "\n";
+  },
+});
+```
+
+<Callout type="warning">
+  `stringify()` throws at runtime if your format was created without a `stringify` function.
+</Callout>
+
+Markdown primitives [#markdown-primitives]
+
+Manual string interpolation is fragile. datamark provides typed builder functions that handle escaping, indentation, and formatting correctly.
+
+Frontmatter [#frontmatter]
+
+```typescript
+import { frontmatter } from "datamark/stringify";
+
+frontmatter({ title: "Hello", tags: ["a", "b"] });
+// "---\ntitle: Hello\ntags:\n  - a\n  - b\n---\n"
+```
+
+Uses `stringifyYaml` internally, so complex nested objects work too.
+
+Headings [#headings]
+
+```typescript
+import { heading } from "datamark/stringify";
+
+heading("Title", 1)     // "# Title"
+heading("Subtitle", 2)  // "## Subtitle"
+```
+
+Depth is clamped to `1–6` automatically.
+
+Code blocks [#code-blocks]
+
+````typescript
+import { codeBlock } from "datamark/stringify";
+
+codeBlock("const x = 1;", "typescript")
+// "```typescript\nconst x = 1;\n```"
+````
+
+Lists [#lists]
+
+```typescript
+import { list } from "datamark/stringify";
+
+list(["First", "Second"])              // "- First\n- Second"
+list(["A", "B"], true)                 // "1. A\n2. B"
+list(["A", "B"], true, 5)              // "5. A\n6. B"
+```
+
+Multi-line items are indented correctly.
+
+Blockquotes [#blockquotes]
+
+```typescript
+import { blockquote } from "datamark/stringify";
+
+blockquote("line1\nline2")
+// "> line1\n> line2"
+```
+
+Inline formatting [#inline-formatting]
+
+```typescript
+import {
+  strong,
+  em,
+  codeSpan,
+  link,
+  image,
+  strikethrough,
+} from "datamark/stringify";
+
+strong("bold")              // "**bold**"
+em("italic")                // "*italic*"
+codeSpan("code")            // "`code`"
+link("text", "https://...") // "[text](https://...)"
+image("alt", "img.png")     // "![alt](img.png)"
+strikethrough("deleted")    // "~~deleted~~"
+```
+
+Building a full document [#building-a-full-document]
+
+Combine primitives to build a complete document:
+
+```typescript
+import { datamark } from "datamark";
+import { inlineText } from "datamark/parse";
+import { heading, paragraph } from "datamark/stringify";
+import * as z from "zod";
+
+const NoteSchema = z.object({ title: z.string(), body: z.string() });
+
+const NoteFormat = datamark({
+  schema: NoteSchema,
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    const title = h1 ? inlineText(h1.heading.children) : "";
+    const firstPara = h1?.children?.find((n: any) => n.type === "paragraph");
+    const body = firstPara ? inlineText(firstPara.children) : "";
+    return { title, body };
+  },
+  stringify(data) {
+    return heading(data.title) + "\n\n" + paragraph(data.body) + "\n";
+  },
+});
+```
+
+```typescript
+const data = NoteFormat.parse("# Hello\n\nWorld");
+const md = NoteFormat.stringify(data);
+// "# Hello\n\nWorld\n"
+```
+
+Round-trip fidelity [#round-trip-fidelity]
+
+For perfect round-tripping, your `parse` and `stringify` should be inverses:
+
+```typescript
+const data = NoteFormat.parse("# Hello\n\nWorld");
+const roundTrip = NoteFormat.parse(NoteFormat.stringify(data));
+// data and roundTrip should be deep-equal
+```
+
+Markdown is lossy by design — `parse` normalizes whitespace and `stringify` may emit slightly different formatting. If exact round-tripping is required, store the original Markdown alongside the parsed data.
+
+
+# Testing Formats
+
+
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The hardest part of maintaining a parser is keeping it correct as the input format evolves. datamark solves this by making formats **self-documenting and self-testing** with inline examples.
+
+Inline examples [#inline-examples]
+
+Every format can carry examples right in its definition:
+
+```typescript
+import { datamark } from "datamark";
+import { inlineText } from "datamark/parse";
+
+const TestedFormat = datamark({
+  examples: [
+    { text: "# Hello", data: { title: "Hello" } },
+    { text: "# World\n\nbody", data: { title: "World" } },
+  ],
+  parse(doc) {
+    const h1 = doc.root.children.find((n) => n.type === "section") as any;
+    return { title: h1 ? inlineText(h1.heading.children) : "" };
+  },
+});
+```
+
+```typescript
+const result = TestedFormat.test();
+if (!result.passed) {
+  for (const failure of result.failures) {
+    console.error(`Example ${failure.exampleIndex}: ${failure.error}`);
+  }
+}
+```
+
+Examples serve three purposes:
+
+1. **Documentation** — `.docs()` includes them in generated docs
+2. **Testing** — `.test()` validates them automatically
+3. **Specification** — they act as executable contracts for what the format accepts
+
+Running tests [#running-tests]
+
+Call `.test()` to validate all examples. For each example, `.test()`:
+
+1. Parses the `text`
+2. Validates frontmatter against `frontmatterSchema` (if configured)
+3. Runs your `parse` function
+4. Validates the output against `schema` (if configured)
+5. If `data` is provided, compares for exact equality
+
+For each example, `.test()`:
+
+1. Parses the `text`
+2. Validates frontmatter against `frontmatterSchema` (if configured)
+3. Runs your `parse` function
+4. Validates the output against `schema` (if configured)
+5. If `data` is provided, compares for exact equality
+
+Frontmatter validation in tests [#frontmatter-validation-in-tests]
+
+When `frontmatterSchema` is configured, `.test()` validates frontmatter before running `parse`:
+
+```typescript
+import { datamark } from "datamark";
+import * as z from "zod";
+
+const BlogFormat = datamark({
+  frontmatterSchema: z.object({ title: z.string() }),
+  examples: [
+    {
+      text: "---\ntitle: Hello\n---\n\n# Hello",
+      data: { title: "Hello" },
+    },
+  ],
+  parse(doc) {
+    return { title: doc.frontmatter.title };
+  },
+});
+
+BlogFormat.test(); // validates frontmatter automatically
+```
+
+CI integration [#ci-integration]
+
+Add a single test file that imports all your formats:
 
 ```typescript
 import { PlanFormat } from "./formats/plan";
+import { BlogFormat } from "./formats/blog";
 
-if (import.meta.main) {
-  const result = PlanFormat.test();
+const formats = [PlanFormat, BlogFormat];
+let failed = false;
+
+for (const format of formats) {
+  const result = format.test();
   if (!result.passed) {
+    failed = true;
+    console.error(format.docs().description ?? "Unknown format");
     for (const f of result.failures) {
-      console.error(`Example ${f.exampleIndex} failed: ${f.error}`);
+      console.error(`  Example ${f.exampleIndex}: ${f.error}`);
     }
-    process.exit(1);
   }
-  console.log("All format examples passed.");
 }
+
+if (failed) process.exit(1);
 ```
 
-This keeps your format definitions self-documenting, self-testing, and regression-proof.
+Now every pull request validates that your formats still parse the documents they claim to support.
 
+Regression prevention [#regression-prevention]
 
-# trace()
+When someone opens a PR that changes how you extract todo items, your examples catch it. When you add a new format, you add an example. When a user reports a bug, you add a failing example first, then fix it.
 
-
-
-`trace(content)` runs your parse generator against a document and records every combinator call, what it consumed, and where in the source it happened.
-
-Usage [#usage]
-
-```typescript
-const trace = PlanFormat.trace(markdown);
-
-console.log(trace.result); // final parsed object
-console.log(trace.steps.length); // number of steps
-```
-
-TraceStep [#tracestep]
-
-Each step in the trace has:
-
-| Property      | Type                                              | Description                                     |
-| ------------- | ------------------------------------------------- | ----------------------------------------------- |
-| `type`        | `"frontmatter" \| "consume" \| "peek" \| "error"` | What kind of step                               |
-| `combinator`  | `string`                                          | Human-readable name, e.g. `heading(1)`          |
-| `description` | `string?`                                         | User-provided description from `.description()` |
-| `examples`    | `string[]?`                                       | User-provided examples from `.examples()`       |
-| `matched`     | `unknown`                                         | The value produced                              |
-| `consumed`    | `BlockNode[]`                                     | Raw nodes consumed                              |
-| `region`      | `SourceSpan`                                      | Start/end position in original Markdown         |
-
-Example [#example]
-
-```typescript
-for (const step of trace.steps) {
-  console.log(`${step.combinator} consumed ${step.consumed.length} nodes`);
-  console.log(`  at line ${step.region.start.line}`);
-}
-```
-
-Debugging failed parses [#debugging-failed-parses]
-
-When a format fails on a new document, `trace()` shows you exactly which combinator ran out of nodes. Look at the last successful step and the `remaining` nodes after it to understand what the format expected vs. what the document contained.
+Inline examples turn format definitions from static code into living specifications.

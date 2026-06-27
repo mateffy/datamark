@@ -4,11 +4,30 @@ title: Examples
 
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
-Practical format definitions for common document patterns.
+Practical format definitions for common document patterns. Each example uses the **Parse SDK** (`findAll`, `textContent`, `inlineText`, `isCodeBlock`, `extractTodoItems`) for parsing and **`datamark/stringify`** (`heading`, `list`, `codeBlock`, `frontmatter`) for serialization.
 
 <Cards>
-  <Card title="Basic Format" description="Frontmatter + title + step sections" href="/docs/examples/basic-format" />
-  <Card title="Blog Post" description="Metadata, body, and tags" href="/docs/examples/blog-post-format" />
-  <Card title="Todo List" description="Checkboxes, priorities, and due dates" href="/docs/examples/todo-list-format" />
-  <Card title="API Documentation" description="Endpoints, parameters, and return types" href="/docs/examples/api-docs-format" />
+  <Card title="Basic Format" description="Simple heading + body extraction with inlineText and textContent" href="/docs/examples/basic-format" />
+  <Card title="Blog Post" description="Typed frontmatter + body content with textContent and frontmatter()" href="/docs/examples/blog-post-format" />
+  <Card title="Todo List" description="Checkbox items with extractTodoItems and list()" href="/docs/examples/todo-list-format" />
+  <Card title="API Documentation" description="Endpoints, parameters, and JSON code blocks with findAll and codeBlock()" href="/docs/examples/api-docs-format" />
+  <Card title="Changelog" description="Versioned release notes with regex heading parsing and list()" href="/docs/examples/changelog-format" />
+  <Card title="Recipe" description="Frontmatter metadata + ingredients + step sections with section walking" href="/docs/examples/recipe-format" />
+  <Card title="Meeting Notes" description="Attendees, agenda, and tracked action items with extractTodoItems" href="/docs/examples/meeting-notes-format" />
 </Cards>
+
+## Pattern: Three imports
+
+Every format definition imports from three places:
+
+```typescript
+import { datamark } from "datamark";
+import { inlineText, textContent, findAll, isCodeBlock } from "datamark/parse";
+import { heading, list, codeBlock, frontmatter } from "datamark/stringify";
+```
+
+- **`datamark`** gives you the format factory
+- **`datamark/parse`** gives you AST traversal and extraction utilities
+- **`datamark/stringify`** gives you builder functions for clean Markdown output
+
+This separation keeps your imports explicit: the format system on one side, parsing on another, serialization on the third.

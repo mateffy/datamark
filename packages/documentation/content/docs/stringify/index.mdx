@@ -1,0 +1,72 @@
+---
+title: Stringify SDK
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+The Stringify SDK turns typed data and AST nodes back into Markdown strings. It is the inverse of the [Parse SDK](/docs/parse): where `parse()` consumes Markdown, the Stringify SDK produces it.
+
+Use it directly when you need to build Markdown output from structured data, or as the serialization layer inside a [Format SDK](/docs/template) format definition.
+
+<Cards>
+  <Card title="Builder Primitives" description="heading(), list(), codeBlock(), frontmatter(), strong(), link(), and more" href="/docs/stringify/builders" />
+  <Card title="Document Serialization" description="stringify(), toMarkdown(), and round-trip guarantees" href="/docs/stringify/document-serialization" />
+</Cards>
+
+## What the Stringify SDK provides
+
+| Capability | Functions |
+|------------|-----------|
+| **Block builders** | `frontmatter()`, `heading()`, `paragraph()`, `codeBlock()`, `list()`, `blockquote()`, `horizontalRule()` |
+| **Inline builders** | `strong()`, `em()`, `codeSpan()`, `link()`, `image()`, `strikethrough()` |
+| **Document serialization** | `stringify()`, `toMarkdown()` |
+| **YAML helpers** | `stringifyYaml()` |
+
+## Two ways to use it
+
+### 1. Builder primitives
+
+Compose Markdown strings from data without raw string concatenation:
+
+```typescript
+import { frontmatter, heading, paragraph, list, codeBlock } from "datamark/stringify";
+
+const markdown = [
+  frontmatter({ title: "API Guide" }),
+  heading("Authentication", 2),
+  paragraph("Use Bearer tokens for all requests."),
+  codeBlock("fetch('/api', { headers: { Authorization: 'Bearer ...' } });", "javascript"),
+].join("\n\n");
+```
+
+### 2. Document serialization
+
+Serialize a full `Document` AST back to Markdown:
+
+```typescript
+import { stringify } from "datamark";
+
+const output = stringify(doc);
+// Clean Markdown with frontmatter, headings, and all content restored
+```
+
+## How the layers fit together
+
+```
+    Parse SDK      →  parse(), findAll(), textContent(), isCodeBlock() …
+        ↑
+   Format SDK      →  datamark({ schema, parse, stringify, examples })
+        ↑
+    Stringify SDK  →  heading(), list(), codeBlock(), frontmatter() …
+```
+
+The Format SDK sits between the two: it uses the Parse SDK to turn Markdown into data, and the Stringify SDK to turn data back into Markdown.
+
+## When to use the Stringify SDK directly
+
+- You need to generate Markdown output from structured data
+- You want type-safe builder functions instead of template strings
+- You need to serialize individual AST nodes, not full documents
+- You're building custom tooling that produces Markdown
+
+For round-trip format definitions with validation, the [Format SDK](/docs/template) is the better starting point.

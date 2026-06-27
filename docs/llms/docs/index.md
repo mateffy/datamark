@@ -3,16 +3,16 @@
 import { Card, Cards } from 'fumadocs-ui/components/card';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-datamark is a TypeScript library for turning Markdown documents into typed objects — and back again. It gives you a **declarative, generator-based format system** where you define how a document is consumed using combinators like `heading(1)`, `splitByCombinator(heading(2))`, and `many(codeBlock())`.
+datamark is a TypeScript library for turning Markdown documents into typed objects — and back again. It gives you a **unified AST** with a native section tree, plus a lightweight **format system** for defining how documents map to your data structures.
 
 <Cards>
-  <Card title="AST SDK" description="Parse documents, extract frontmatter, query the AST" href="/docs/core" />
+  <Card title="Parse SDK" description="Parse documents, extract frontmatter, query the AST" href="/docs/parse" />
+
+  <Card title="Stringify SDK" description="Serialize AST nodes and build Markdown with typed primitives" href="/docs/stringify" />
 
   <Card title="Format SDK" description="Define bidirectional formats with datamark()" href="/docs/template" />
 
   <Card title="Examples" description="Real-world format definitions for common patterns" href="/docs/examples" />
-
-  <Card title="Comparisons" description="How datamark compares to alternatives" href="/compare" />
 </Cards>
 
 Why datamark? [#why-datamark]
@@ -22,9 +22,7 @@ Markdown is the universal format for structured text, but parsing it into typed 
 1. **Regex and string manipulation** — fragile, unreadable, unmaintainable.
 2. **Abstract syntax trees** — powerful, but you still write imperative traversal code.
 
-datamark gives you a third option: **declare the shape of your document and get the shape of your data**.
-
-A format is a pair of generator functions. The `parse` generator consumes the AST using `yield*` combinators. The `stringify` generator emits nodes back into Markdown. Both share the same mental model.
+datamark gives you a third option: **a unified AST with a native section tree** and **a lightweight format system** that makes common patterns trivial.
 
 <Callout type="info">
   **Bring your own validator.** datamark uses the Standard Schema v1 interface, so Zod, Valibot, ArkType, TypeBox, and any compliant library work out of the box.
@@ -33,27 +31,82 @@ A format is a pair of generator functions. The `parse` generator consumes the AS
 A 10-second demo [#a-10-second-demo]
 
 ```typescript
-import { datamark, heading, inlineText } from "datamark";
+import { datamark } from "datamark";
+import { findAll, inlineText, textContent, isCodeBlock } from "datamark/parse";
+import { frontmatter, heading, paragraph, codeBlock } from "datamark/stringify";
 import * as z from "zod";
 
-const Plan = datamark({
-  schema: z.object({ id: z.string(), title: z.string() }),
-  *parse(doc) {
-    const fm = yield* doc.frontmatter();
-    const title = yield* doc.consume(heading(1));
-    return { id: (fm as any)?.id ?? "", title: inlineText(title.children) };
+const PlanFrontmatterSchema = z.object({ id: z.string() });
+
+const PlanSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  steps: z.array(
+    z.object({
+      description: z.string(),
+      scripts: z.array(z.string()),
+    })
+  ),
+});
+
+const PlanFormat = datamark({
+  frontmatterSchema: PlanFrontmatterSchema,
+  schema: PlanSchema,
+
+  parse(doc) {
+    const id = doc.frontmatter.id;
+    const titleSection = doc.root.children.find((n) => n.type === "section") as any;
+    const title = titleSection ? inlineText(titleSection.heading.children) : "";
+
+    const steps = titleSection
+      ? (titleSection.children.filter((n: any) => n.type === "section") as any[]).map(
+          (section) => {
+            const scripts = findAll(section, (n) => isCodeBlock(n, "javascript")).map(
+              (n: any) => n.value
+            );
+            const description = textContent(section).trim();
+            return { description, scripts };
+          }
+        )
+      : [];
+
+    return { id, title, steps };
   },
-  *stringify(doc, data) {
-    yield* doc.emitFrontmatter({ id: data.id });
-    yield* heading(1, data.title);
+
+  stringify(data) {
+    let md = frontmatter({ id: data.id }) + heading(data.title) + "\n\n";
+    for (const step of data.steps) {
+      md += heading("Step", 2) + "\n\n" + paragraph(step.description) + "\n\n";
+      for (const script of step.scripts) {
+        md += codeBlock(script, "javascript") + "\n\n";
+      }
+    }
+    return md;
   },
 });
 
-const result = Plan.parse(`---
+const planMarkdown = `---
 id: plan-001
 ---
-# Q3 Roadmap`);
-// { id: "plan-001", title: "Q3 Roadmap" }
+# Q3 Roadmap
+
+## Step
+
+Set up the project.
+
+\`\`\`javascript
+npm init -y
+\`\`\`
+
+## Step
+
+Implement the core features.`;
+```
+
+```typescript
+const result = PlanFormat.parse(planMarkdown);
+console.log(result.id);     // "plan-001"
+console.log(result.title);  // "Q3 Roadmap"
 ```
 
 What datamark is NOT [#what-datamark-is-not]
@@ -76,10 +129,10 @@ Who is it for? [#who-is-it-for]
 
 Quick navigation [#quick-navigation]
 
-| Goal                        | Section                                         |
-| --------------------------- | ----------------------------------------------- |
-| New here?                   | [Quickstart](/docs/quickstart)                  |
-| Understand the architecture | [Format SDK](/docs/explanation/template-system) |
-| Look up a function          | [AST SDK](/docs/core)                           |
-| See real formats            | [Examples](/docs/examples)                      |
-| Compare to alternatives     | [Comparisons](/compare)                         |
+| Goal                        | Section                          |
+| --------------------------- | -------------------------------- |
+| New here?                   | [Quickstart](/docs/quickstart)   |
+| Understand the architecture | [The AST](/docs/explanation/ast) |
+| Look up a function          | [Parse SDK](/docs/parse)         |
+| See real formats            | [Examples](/docs/examples)       |
+| Compare to alternatives     | [Comparisons](/compare)          |

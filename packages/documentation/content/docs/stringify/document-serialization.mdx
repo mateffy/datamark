@@ -1,0 +1,113 @@
+---
+title: Document Serialization
+description: Serialize AST nodes and full Documents back to Markdown.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The Stringify SDK provides two ways to turn AST data back into Markdown: `stringify()` for full documents, and `toMarkdown()` for individual nodes.
+
+## `stringify(doc)`
+
+Serializes a complete `Document` back to a Markdown string.
+
+```typescript
+import { parse, stringify } from "datamark";
+
+const doc = parse(`
+---
+title: Hello
+---
+
+# Hello World
+
+This is the first paragraph.
+
+## Section
+
+More content here.
+`);
+
+const output = stringify(doc);
+// ---
+// title: Hello
+// ---
+//
+// # Hello World
+//
+// This is the first paragraph.
+//
+// ## Section
+//
+// More content here.
+```
+
+<Callout type="info">
+  `stringify()` flattens the section tree before serializing. The result is a clean Markdown string with frontmatter when present.
+</Callout>
+
+## `toMarkdown(node)`
+
+Serializes a single AST node to Markdown. Useful when you need to output a subset of the tree.
+
+```typescript
+import { toMarkdown } from "datamark/stringify";
+
+const headingNode = { type: "heading", depth: 2, children: [{ type: "text", value: "Title" }] };
+toMarkdown(headingNode); // "## Title"
+```
+
+`toMarkdown` accepts a single `Node` or an array of `BlockNode[]` and returns the corresponding Markdown string.
+
+## Round-trip
+
+Parse and stringify are reversible for most Markdown:
+
+```typescript
+import { parse, stringify } from "datamark";
+
+const input = "# Title\n\nBody text";
+const doc = parse(input);
+const output = stringify(doc);
+
+console.log(output); // "# Title\n\nBody text\n"
+```
+
+<Callout type="warning">
+  Positions may shift slightly on roundtrip because `toMarkdown` re-serializes from the AST rather than preserving the original raw text. Whitespace and exact indentation are normalized.
+</Callout>
+
+## `stringifyYaml(data)`
+
+For cases where you need YAML output without a full frontmatter fence, `stringifyYaml` produces clean YAML from a JavaScript object:
+
+```typescript
+import { stringifyYaml } from "datamark/stringify";
+
+stringifyYaml({ title: "Hello", tags: ["a", "b"] })
+// "title: Hello\ntags:\n  - a\n  - b\n"
+```
+
+This is the same function used internally by `frontmatter()`.
+
+## Building documents from scratch
+
+When you need full control over output, combine builder primitives with `stringify()`:
+
+```typescript
+import { parse } from "datamark";
+import { heading, paragraph, list } from "datamark/stringify";
+
+function buildReport(data: { title: string; items: string[] }) {
+  const markdown = [
+    heading(data.title, 2),
+    paragraph(`Generated on ${new Date().toISOString()}`),
+    list(data.items),
+  ].join("\n\n");
+
+  // If you need a Document object, parse it back
+  return parse(markdown);
+}
+```
+
+For format definitions, this is usually handled inside the `stringify` function passed to `datamark()`.

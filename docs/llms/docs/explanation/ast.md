@@ -10,12 +10,92 @@ Document [#document]
 interface Document {
   type: "document";
   frontmatter: Record<string, unknown> | null;
-  children: BlockNode[];
+  root: SectionNode;
 }
 ```
 
 * `frontmatter` — parsed YAML from `---` fences, or `null`
-* `children` — array of top-level block nodes
+* `root` — the root section of the document tree
+
+Section tree [#section-tree]
+
+The `root` is a `SectionNode` that organizes the entire document by heading depth:
+
+```typescript
+interface SectionNode {
+  type: "section";
+  heading: HeadingNode | null;
+  children: Node[];
+}
+```
+
+Headings become section boundaries. A section contains its heading (if any) and all content until the next heading of the same or lesser depth. The algorithm is single-pass, stack-based, and depth-agnostic — any heading depth works.
+
+```typescript
+import { parse } from "datamark";
+
+const doc = parse(`
+# Title
+
+Intro paragraph.
+
+## Section A
+
+Some text.
+
+### Subsection A1
+
+More text.
+
+## Section B
+
+Final text.
+`);
+
+// Section tree navigation
+const topSection = doc.root.children.find(
+  (n) => n.type === "section"
+) as any;
+
+const topSectionDepth = topSection?.heading?.depth;
+const subSections = topSection?.children?.filter(
+  (n: any) => n.type === "section"
+);
+const subSubSections = subSections?.[0]?.children?.filter(
+  (n: any) => n.type === "section"
+);
+const subSubDepth = subSubSections?.[0]?.heading?.depth;
+
+// Node example
+const paraDoc = parse(`# Hello\n\nThis is a **paragraph**.`);
+const firstSection = paraDoc.root.children[0] as any;
+const firstSectionType = firstSection.type;
+const firstSectionHeadingDepth = firstSection.heading.depth;
+const firstParagraph = firstSection.children.find(
+  (n: any) => n.type === "paragraph"
+);
+const firstSectionChildType = firstParagraph?.type ?? "none";
+```
+
+<Callout type="info">
+  Content before the first heading stays in `root.children`. If there are no headings at all, the entire document is in `root.children`.
+</Callout>
+
+Node hierarchy [#node-hierarchy]
+
+All nodes share a common base:
+
+```typescript
+interface Node {
+  type: string;
+  raw?: string;
+  position?: SourceSpan;
+}
+
+interface ParentNode extends Node {
+  children: Node[];
+}
+```
 
 Block nodes [#block-nodes]
 
@@ -26,8 +106,11 @@ Block nodes [#block-nodes]
 | `code`       | `CodeNode`       | `lang?: string`, `meta?: string`, `value: string` |
 | `blockquote` | `BlockquoteNode` | `children: BlockNode[]`                           |
 | `hr`         | `HrNode`         | —                                                 |
-| `list`       | `ListNode`       | `ordered: boolean`, `items: BlockNode[][]`        |
-| `table`      | `TableNode`      | `header`, `rows`, `align`                         |
+| `list`       | `ListNode`       | `ordered: boolean`, `children: ListItemNode[]`    |
+| `listItem`   | `ListItemNode`   | `children: BlockNode[]`                           |
+| `table`      | `TableNode`      | `children: TableRowNode[]`, `align`               |
+| `tableRow`   | `TableRowNode`   | `children: TableCellNode[]`                       |
+| `tableCell`  | `TableCellNode`  | `children: InlineNode[]`                          |
 | `html`       | `HtmlBlockNode`  | `value: string`                                   |
 | `space`      | `SpaceNode`      | —                                                 |
 
@@ -66,7 +149,9 @@ Example [#example]
 import { parse } from "datamark";
 
 const doc = parse(`# Hello\n\nThis is a **paragraph**.`);
-console.log(doc.children[0].type); // "heading"
-console.log(doc.children[0].depth); // 1
-console.log(doc.children[1].type); // "paragraph"
+const topSection = doc.root.children[0] as any;
+const paragraph = topSection.children.find((n: any) => n.type === "paragraph");
+console.log(topSection.type);        // "section"
+console.log(topSection.heading.depth); // 1
+console.log(paragraph.type);           // "paragraph"
 ```

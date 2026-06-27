@@ -1,0 +1,24 @@
+---
+title: Changelog Format
+description: Parse a versioned changelog with release dates and bullet lists.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example parses a changelog with version headings, optional release dates, and bullet lists of changes. It has no frontmatter — all data lives in the heading text and list items. AST utilities (`inlineText`, `textContent`) handle extraction; stringify primitives (`heading`, `list`) handle reconstruction.
+
+<Example name="changelog" />
+
+```typescript
+const result = ChangelogFormat.parse(changelogMarkdown);
+console.log(result.versions[0].version); // "1.2.0"
+console.log(result.versions[0].date);     // "2026-06-15"
+console.log(result.versions[0].changes.length); // 3
+```
+
+## Key concepts
+
+- **No frontmatter** — the format uses heading text as the primary data source
+- **Regex parsing** — heading text is split into version and date with a simple regex
+- **`textContent()`** from the Parse SDK extracts plain text from each list item
+- **`heading()`** and **`list()`** from `datamark/stringify` reconstruct the markdown cleanly

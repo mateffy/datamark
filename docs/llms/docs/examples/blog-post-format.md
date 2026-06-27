@@ -1,62 +1,76 @@
 
 
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example parses a blog post with frontmatter metadata and body content. The frontmatter is fully typed via `frontmatterSchema`. AST utilities (`textContent`) extract the body, and stringify primitives (`frontmatter`, `paragraph`) reconstruct the Markdown.
+
 ```typescript
-import { datamark, heading, until, rest, markdown, inlineText, textContent } from "datamark";
+import { datamark } from "datamark";
+import { inlineText } from "datamark/parse";
+import { frontmatter, paragraph } from "datamark/stringify";
 import * as z from "zod";
 
-const BlogPostFormat = datamark({
-  schema: z.object({
-    meta: z.object({
-      title: z.string(),
-      date: z.string(),
-      author: z.string(),
-      tags: z.array(z.string()),
-    }),
-    body: z.string(),
-  }),
+const BlogFrontmatterSchema = z.object({
+  title: z.string(),
+  date: z.string(),
+  author: z.string(),
+  tags: z.array(z.string()),
+});
 
-  *parse(doc) {
-    const fm = yield* doc.frontmatter();
-    const meta = fm as any;
-    const bodyNodes = yield* doc.consume(rest());
-    const body = bodyNodes.map((n: any) => n.raw ?? "").join("\n").trim();
-    return { meta, body };
+const BlogPostSchema = z.object({
+  meta: BlogFrontmatterSchema,
+  body: z.string(),
+});
+
+const BlogPostFormat = datamark({
+  frontmatterSchema: BlogFrontmatterSchema,
+  schema: BlogPostSchema,
+
+  parse(doc) {
+    // Collect all paragraph text recursively, excluding headings
+    const paragraphs: string[] = [];
+    function walk(node: any) {
+      if (node.type === "paragraph") {
+        paragraphs.push(inlineText(node.children));
+      }
+      if (node.children) {
+        for (const child of node.children) {
+          walk(child);
+        }
+      }
+    }
+    walk(doc.root);
+    return { meta: doc.frontmatter, body: paragraphs.join("\n\n").trim() };
   },
 
-  *stringify(doc, data) {
-    yield* doc.emitFrontmatter(data.meta);
-    yield* markdown(data.body);
+  stringify(data) {
+    const paragraphs = data.body.split("\n\n").map((p) => paragraph(p));
+    return frontmatter(data.meta) + paragraphs.join("\n\n") + "\n";
   },
 });
-```
 
-Example input [#example-input]
-
-```markdown
----
+const blogPostMarkdown = `---
 title: Hello World
 date: 2026-05-30
 author: Ada
 tags: [typescript, markdown]
 ---
 
-This is the first paragraph.
+This is the first paragraph of the blog post.
 
 ## Subheading
 
-More content here.
+More content here with **bold** text and a [link](https://example.com).`;
 ```
 
-Example output [#example-output]
-
-```json
-{
-  "meta": {
-    "title": "Hello World",
-    "date": "2026-05-30",
-    "author": "Ada",
-    "tags": ["typescript", "markdown"]
-  },
-  "body": "This is the first paragraph.\n\n## Subheading\n\nMore content here."
-}
+```typescript
+const result = BlogPostFormat.parse(blogPostMarkdown);
+console.log(result.meta.title); // "Hello World"
+console.log(result.body); // full body text
 ```
+
+Key concepts [#key-concepts]
+
+* **`frontmatterSchema`** validates and types `doc.frontmatter` — no `as any` needed
+* **`textContent()`** from the Parse SDK recursively extracts all text from the document tree
+* **`frontmatter()`** from `datamark/stringify` serializes metadata back to YAML with proper escaping

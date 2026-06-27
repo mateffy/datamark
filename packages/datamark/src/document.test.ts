@@ -7,35 +7,41 @@ describe("parse", () => {
   test("parses full doc with frontmatter and body", () => {
     const doc = parse("---\ntitle: Hello\n---\n# Hello\n\nBody text");
     expect(doc.frontmatter).toEqual({ title: "Hello" });
-    expect(doc.children.length).toBeGreaterThan(0);
+    expect(doc.root).toBeDefined();
+    expect(doc.root.children.length).toBeGreaterThan(0);
   });
 
   test("parses doc without frontmatter", () => {
     const doc = parse("# Hello\n\nBody text");
     expect(doc.frontmatter).toBeNull();
-    expect(doc.children.length).toBeGreaterThan(0);
+    expect(doc.root).toBeDefined();
+    expect(doc.root.children.length).toBeGreaterThan(0);
   });
 
   test("parses doc with empty body", () => {
     const doc = parse("---\ntitle: Hello\n---");
     expect(doc.frontmatter).toEqual({ title: "Hello" });
-    expect(doc.children).toEqual([]);
+    expect(doc.root.children).toEqual([]);
   });
 
   test("uses splitFrontmatter path for malformed closing fence", () => {
     const doc = parse("---\nfoo: bar\n  ---\n# Hello\n\nBody");
     expect(doc.frontmatter).toEqual({ foo: "bar" });
-    expect(doc.children.length).toBeGreaterThan(0);
+    expect(doc.root.children.length).toBeGreaterThan(0);
   });
 
-  test("position tracking exists on children", () => {
+  test("position tracking exists on block nodes", () => {
     const doc = parse("# Hello\n\nBody text");
-    for (const child of doc.children) {
-      expect(child.position).toBeDefined();
-      expect(child.position).toHaveProperty("start");
-      expect(child.position).toHaveProperty("end");
+    const section = doc.root.children.find((n) => n.type === "section") as any;
+    expect(section).toBeDefined();
+    for (const child of section.children) {
+      if (child.type !== "section") {
+        expect(child.position).toBeDefined();
+        expect(child.position).toHaveProperty("start");
+        expect(child.position).toHaveProperty("end");
+      }
     }
-    const h1 = doc.children[0] as HeadingNode;
+    const h1 = section.heading as HeadingNode;
     expect(h1.position!.start.line).toBe(1);
     expect(h1.position!.start.column).toBe(1);
   });
@@ -65,7 +71,11 @@ describe("stringify", () => {
     const doc = {
       type: "document" as const,
       frontmatter: { title: "Hello" },
-      children: [heading, paragraph],
+      root: {
+        type: "section" as const,
+        heading: null,
+        children: [heading, paragraph],
+      },
     };
     const result = stringify(doc);
     expect(result).toContain("---");
@@ -78,7 +88,11 @@ describe("stringify", () => {
     const doc = {
       type: "document" as const,
       frontmatter: null,
-      children: [heading],
+      root: {
+        type: "section" as const,
+        heading: null,
+        children: [heading],
+      },
     };
     const result = stringify(doc);
     expect(result).toBe("# Hello\n");
@@ -88,7 +102,11 @@ describe("stringify", () => {
     const doc = {
       type: "document" as const,
       frontmatter: null,
-      children: [paragraph],
+      root: {
+        type: "section" as const,
+        heading: null,
+        children: [paragraph],
+      },
     };
     expect(stringify(doc)).toBe("Body\n");
   });
@@ -97,7 +115,11 @@ describe("stringify", () => {
     const doc = {
       type: "document" as const,
       frontmatter: null,
-      children: [],
+      root: {
+        type: "section" as const,
+        heading: null,
+        children: [],
+      },
     };
     expect(stringify(doc)).toBe("\n");
   });
@@ -106,7 +128,11 @@ describe("stringify", () => {
     const doc = {
       type: "document" as const,
       frontmatter: {},
-      children: [heading],
+      root: {
+        type: "section" as const,
+        heading: null,
+        children: [heading],
+      },
     };
     const result = stringify(doc);
     expect(result).not.toContain("---");
@@ -117,7 +143,11 @@ describe("stringify", () => {
     const doc = {
       type: "document" as const,
       frontmatter: null,
-      children: [paragraph],
+      root: {
+        type: "section" as const,
+        heading: null,
+        children: [paragraph],
+      },
     };
     const result = stringify(doc);
     expect(result.endsWith("\n")).toBe(true);

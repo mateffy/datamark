@@ -1,0 +1,46 @@
+---
+title: Parse SDK
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+The Parse SDK is the low-level layer of datamark. It turns Markdown strings into fully typed syntax trees and gives you the tools to query, transform, and extract data from them.
+
+Use it directly when you need fine-grained control over parsing, or as the foundation for higher-level formats built with the [Format SDK](/docs/template).
+
+<Cards>
+  <Card title="parse()" description="Turn Markdown into a typed Document with a section tree" href="/docs/parse/parse" />
+  <Card title="Frontmatter" description="Extract and split YAML frontmatter from Markdown strings" href="/docs/parse/frontmatter" />
+  <Card title="YAML" description="Parse and stringify YAML with thin built-in helpers" href="/docs/parse/yaml" />
+  <Card title="Tree Utilities" description="Find, filter, split, and extract data from the AST" href="/docs/parse/tree-utils" />
+</Cards>
+
+## What the AST SDK provides
+
+| Capability | Functions |
+|------------|-----------|
+| **Parsing** | `parse()`, `parseBlocks()` |
+| **Frontmatter** | `extractFrontmatter()`, `splitFrontmatter()` |
+| **YAML** | `parseYaml()`, `stringifyYaml()` |
+| **Querying** | `find()`, `findAll()`, `filter()`, `sectionsAtDepth()`, `sectionsByHeading()` |
+| **Splitting** | `splitBy()`, `between()`, `after()`, `before()` |
+| **Extraction** | `codeBlocks()`, `inlineText()`, `textContent()`, `extractTodoItems()` |
+| **Type guards** | `isHeading()`, `isCodeBlock()`, `isTodoItem()`, `isSection()`, `isBlockNode()`, `isInlineNode()`, `isParentNode()` |
+
+## What the Format SDK adds on top
+
+The [Format SDK](/docs/template) builds on the Parse SDK and adds:
+
+- **`datamark()`** — a factory that wraps `parse`, `stringify`, `schema`, and `examples` into a single typed format
+- **Typed frontmatter** — `frontmatterSchema` validates and types `doc.frontmatter` before your `parse` function runs
+- **Builder primitives** — `heading()`, `list()`, `codeBlock()`, `frontmatter()` from `datamark/stringify` replace fragile string concatenation
+- **Self-testing** — `examples` are validated by `.test()` automatically
+
+## When to use the Parse SDK directly
+
+- You need to parse Markdown without defining a full format
+- You want to inspect or transform an AST interactively
+- You're building custom tooling on top of datamark's parser
+- You need to extract data from an AST without serialization
+
+For most use cases — especially when you want typed data, validation, and round-trip serialization — the [Format SDK](/docs/template) is the better starting point.

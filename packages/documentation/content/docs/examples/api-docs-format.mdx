@@ -1,116 +1,22 @@
 ---
-title: API Documentation
-description: Structured API docs with endpoints, parameters, and return types.
+title: API Doc Format
+description: Parse endpoint documentation with parameters and responses.
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example parses API documentation with endpoint info, parameters, and response examples. It combines AST utilities (`findAll`, `isCodeBlock`, `textContent`, `inlineText`) for extraction and stringify primitives (`heading`, `paragraph`, `codeBlock`) for reconstruction.
+
+<Example name="api-docs" />
+
 ```typescript
-import { datamark, heading, splitByCombinator, codeBlock, isCodeBlock, inlineText } from "datamark";
-import * as z from "zod";
-
-const ApiDocFormat = datamark({
-  schema: z.object({
-    endpoint: z.string(),
-    method: z.enum(["GET", "POST", "PUT", "DELETE"]),
-    description: z.string(),
-    params: z.array(z.object({
-      name: z.string(),
-      type: z.string(),
-      required: z.boolean(),
-      description: z.string(),
-    })),
-    response: z.string(),
-  }),
-
-  *parse(doc) {
-    const h1 = yield* doc.consume(heading(1));
-    const parts = inlineText(h1.children).split(" ");
-    const method = parts[0] as any;
-    const endpoint = parts[1] ?? "";
-
-    const sections = yield* doc.consume(splitByCombinator(heading(2)));
-
-    let description = "";
-    let response = "";
-    let params: any[] = [];
-
-    for (const section of sections) {
-      const headingNode = section.find((n: any) => n.type === "heading");
-      const headingText = headingNode ? inlineText(headingNode.children).toLowerCase() : "";
-
-      if (headingText.includes("description")) {
-        description = section
-          .filter((n: any) => n.type === "paragraph")
-          .map((n: any) => n.children.map((c: any) => c.value).join(""))
-          .join("\n");
-      }
-
-      if (headingText.includes("parameters")) {
-        const paramBlocks = section.filter((n: any) => isCodeBlock(n, "json"));
-        for (const block of paramBlocks) {
-          try {
-            const parsed = JSON.parse(block.value);
-            params.push(parsed);
-          } catch { /* ignore */ }
-        }
-      }
-
-      if (headingText.includes("response")) {
-        const respBlock = section.find((n: any) => isCodeBlock(n, "json"));
-        response = respBlock?.value ?? "";
-      }
-    }
-
-    return { endpoint, method, description, params, response };
-  },
-
-  *stringify(doc, data) {
-    yield* heading(1, `${data.method} ${data.endpoint}`);
-    yield* heading(2, "Description");
-    yield* markdown(data.description);
-    if (data.params.length > 0) {
-      yield* heading(2, "Parameters");
-      for (const p of data.params) {
-        yield* codeBlock("json", JSON.stringify(p, null, 2));
-      }
-    }
-    yield* heading(2, "Response");
-    yield* codeBlock("json", data.response);
-  },
-});
+const result = ApiDocFormat.parse(apiMarkdown);
+console.log(result.method); // "GET"
+console.log(result.params[0].name); // "limit"
 ```
 
-### Example input
+## Key concepts
 
-```markdown
-# GET /users
-
-## Description
-
-Returns a list of users.
-
-## Parameters
-
-```json
-{ "name": "limit", "type": "number", "required": false, "description": "Max results" }
-```
-
-## Response
-
-```json
-{ "users": [{ "id": 1, "name": "Ada" }] }
-```
-```
-
-### Example output
-
-```json
-{
-  "endpoint": "/users",
-  "method": "GET",
-  "description": "Returns a list of users.",
-  "params": [
-    { "name": "limit", "type": "number", "required": false, "description": "Max results" }
-  ],
-  "response": "{ \"users\": [{ \"id\": 1, \"name\": \"Ada\" }] }"
-}
-```
+- **`findAll()`** and **`isCodeBlock()`** from the Parse SDK extract code blocks by language
+- **`textContent()`** extracts all text from a section; **`inlineText()`** extracts heading text
+- **`codeBlock()`** from `datamark/stringify` serializes JSON back to fenced code blocks

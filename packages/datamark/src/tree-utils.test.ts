@@ -7,7 +7,8 @@ import {
   find,
   findAll,
   filter,
-  sections,
+  sectionsAtDepth,
+  sectionsByHeading,
   splitBy,
   between,
   after,
@@ -16,9 +17,10 @@ import {
   inlineText,
   textContent,
   toMarkdown,
+  flatten,
 } from "./tree-utils";
-import type { BlockNode, InlineNode } from "./tree";
-import { parseBody } from "./tree";
+import { buildSectionTree } from "./tree";
+import type { BlockNode, InlineNode, ListItemNode } from "./tree";
 
 // Helpers to build nodes without parsing
 function h(depth: number, text: string): BlockNode {
@@ -52,18 +54,32 @@ function hr(): BlockNode {
   return { type: "hr", raw: "---" } as BlockNode;
 }
 
-function li(...items: BlockNode[][]): BlockNode {
-  const raw = items.map((item) => item.map((n) => (n as any).raw).join("\n")).join("\n");
-  return { type: "list", ordered: false, items, raw } as BlockNode;
+function liItem(...children: BlockNode[]): ListItemNode {
+  const raw = children.map((n) => (n as any).raw).join("\n");
+  return { type: "listItem", children, raw };
 }
 
-function oli(start: number, ...items: BlockNode[][]): BlockNode {
-  const raw = items.map((item, i) => `${start + i}. ${item.map((n) => (n as any).raw).join("\n")}`).join("\n");
-  return { type: "list", ordered: true, start, items, raw } as BlockNode;
+function li(...items: ListItemNode[]): BlockNode {
+  const raw = items.map((item) => item.children.map((n) => (n as any).raw).join("\n")).join("\n");
+  return { type: "list", ordered: false, children: items, raw } as BlockNode;
+}
+
+function oli(start: number, ...items: ListItemNode[]): BlockNode {
+  const raw = items.map((item, i) => `${start + i}. ${item.children.map((n) => (n as any).raw).join("\n")}`).join("\n");
+  return { type: "list", ordered: true, start, children: items, raw } as BlockNode;
 }
 
 function space(): BlockNode {
   return { type: "space", raw: "\n\n" } as BlockNode;
+}
+
+function sectionNode(heading: BlockNode | null, ...children: BlockNode[]): any {
+  return {
+    type: "section",
+    heading: heading as any,
+    children: children as any,
+    raw: "",
+  };
 }
 
 describe("isHeading", () => {
@@ -88,11 +104,11 @@ describe("isCodeBlock", () => {
 
 describe("isTodoItem", () => {
   test("true for [ ] todo", () => {
-    expect(isTodoItem(li([p("[ ] a")]))).toBe(true);
+    expect(isTodoItem(li(liItem(p("[ ] a"))))).toBe(true);
   });
 
   test("false for regular list", () => {
-    expect(isTodoItem(li([p("normal")]))).toBe(false);
+    expect(isTodoItem(li(liItem(p("normal"))))).toBe(false);
   });
 
   test("false for blockquote non-todo", () => {
@@ -102,14 +118,14 @@ describe("isTodoItem", () => {
 
 describe("extractTodoItems", () => {
   test("extracts from list", () => {
-    const items = extractTodoItems([li([p("[ ] a")], [p("[x] b")])]);
+    const items = extractTodoItems([li(liItem(p("[ ] a")), liItem(p("[x] b")))]);
     expect(items).toHaveLength(2);
     expect(items[0]!.completed).toBe(false);
     expect(items[1]!.completed).toBe(true);
   });
 
   test("extracts from nested blockquote", () => {
-    const items = extractTodoItems([bq(li([p("[X] nested")]))]);
+    const items = extractTodoItems([bq(li(liItem(p("[X] nested"))))]);
     expect(items).toHaveLength(1);
     expect(items[0]!.text).toBe("nested");
   });
@@ -120,36 +136,36 @@ describe("extractTodoItems", () => {
 });
 
 describe("find", () => {
-  const nodes: BlockNode[] = [h(1, "A"), p("B"), bq(h(2, "C"))];
+  const root = sectionNode(null, h(1, "A"), p("B"), bq(h(2, "C")));
 
   test("finds top level node", () => {
-    expect(find(nodes, (n) => n.type === "paragraph")!.type).toBe("paragraph");
+    expect(find(root, (n) => n.type === "paragraph")!.type).toBe("paragraph");
   });
 
   test("finds nested in blockquote", () => {
-    expect(find(nodes, (n) => isHeading(n, 2))!.type).toBe("heading");
+    expect(find(root, (n) => isHeading(n, 2))!.type).toBe("heading");
   });
 
   test("not found returns undefined", () => {
-    expect(find(nodes, (n) => n.type === "code")).toBeUndefined();
+    expect(find(root, (n) => n.type === "code")).toBeUndefined();
   });
 });
 
 describe("findAll", () => {
   test("multiple at top level", () => {
-    const nodes: BlockNode[] = [h(1, "A"), h(1, "B"), p("C")];
-    const res = findAll(nodes, (n) => n.type === "heading");
+    const root = sectionNode(null, h(1, "A"), h(1, "B"), p("C"));
+    const res = findAll(root, (n) => n.type === "heading");
     expect(res).toHaveLength(2);
   });
 
   test("nested in blockquotes", () => {
-    const nodes: BlockNode[] = [bq(h(2, "A")), bq(h(2, "B"))];
-    const res = findAll(nodes, (n) => isHeading(n, 2));
+    const root = sectionNode(null, bq(h(2, "A")), bq(h(2, "B")));
+    const res = findAll(root, (n) => isHeading(n, 2));
     expect(res).toHaveLength(2);
   });
 
   test("none found returns []", () => {
-    expect(findAll([p("A")], (n) => n.type === "code")).toEqual([]);
+    expect(findAll(p("A"), (n) => n.type === "code")).toEqual([]);
   });
 });
 
@@ -166,26 +182,21 @@ describe("filter", () => {
   });
 });
 
-describe("sections", () => {
-  test("by heading level", () => {
-    const nodes: BlockNode[] = [h(2, "A"), p("B"), h(2, "C"), p("D")];
-    const secs = sections(nodes, { by: "heading", level: 2 });
-    expect(secs).toHaveLength(2);
-    expect(secs[0]!.heading!.type).toBe("heading");
-    expect(secs[0]!.children).toHaveLength(1);
+describe("sectionsAtDepth", () => {
+  test("finds sections at depth", () => {
+    const root = buildSectionTree([h(1, "A"), p("intro"), h(2, "B"), p("body"), h(2, "C"), p("more")]);
+    const h2s = sectionsAtDepth(root, 2);
+    expect(h2s).toHaveLength(2);
+    expect(h2s[0]!.heading!.children[0]!.value).toBe("B");
   });
+});
 
-  test("content before first heading", () => {
-    const nodes: BlockNode[] = [p("pre"), h(2, "A"), p("B")];
-    const secs = sections(nodes, { by: "heading", level: 2 });
-    expect(secs[0]!.heading).toBeNull();
-    expect(secs[1]!.heading).not.toBeNull();
-  });
-
-  test("no headings returns single section with null heading", () => {
-    const secs = sections([p("A")], { by: "heading", level: 1 });
-    expect(secs).toHaveLength(1);
-    expect(secs[0]!.heading).toBeNull();
+describe("sectionsByHeading", () => {
+  test("finds sections by heading text", () => {
+    const root = buildSectionTree([h(1, "A"), h(2, "B"), p("body")]);
+    const sections = sectionsByHeading(root, "B");
+    expect(sections).toHaveLength(1);
+    expect(sections[0]!.heading!.depth).toBe(2);
   });
 });
 
@@ -264,8 +275,8 @@ describe("before", () => {
 
 describe("codeBlocks", () => {
   test("extracts recursive from blockquotes", () => {
-    const nodes: BlockNode[] = [bq(code("a")), p("b")];
-    const res = codeBlocks(nodes);
+    const root = sectionNode(null, bq(code("a")), p("b"));
+    const res = codeBlocks(root);
     expect(res).toHaveLength(1);
     expect(res[0]!.type).toBe("code");
   });
@@ -297,19 +308,24 @@ describe("inlineText", () => {
 
 describe("textContent", () => {
   test("heading", () => {
-    expect(textContent([h(1, "A")])).toBe("A");
+    expect(textContent(h(1, "A"))).toBe("A");
   });
 
   test("code", () => {
-    expect(textContent([code("x")])).toBe("x");
+    expect(textContent(code("x"))).toBe("x");
   });
 
   test("blockquote recursive", () => {
-    expect(textContent([bq(p("nested"))])).toBe("nested");
+    expect(textContent(bq(p("nested")))).toBe("nested");
   });
 
   test("hr and space filtered out", () => {
     expect(textContent([hr(), space(), p("a")])).toBe("a");
+  });
+
+  test("section node", () => {
+    const root = buildSectionTree([h(1, "Title"), p("Intro"), h(2, "Sub"), p("Body")]);
+    expect(textContent(root)).toBe("Title\nIntro\nSub\nBody");
   });
 });
 
@@ -327,16 +343,36 @@ describe("toMarkdown", () => {
   });
 
   test("ordered list with start", () => {
-    expect(toMarkdown([oli(3, [p("a")], [p("b")])])).toBe("3. a\n4. b");
+    expect(toMarkdown([oli(3, liItem(p("a")), liItem(p("b")))])).toBe("3. a\n4. b");
   });
 
   test("roundtrip parse toMarkdown parse", () => {
     const md = "# A\n\npara\n\n```ts\ncode\n```";
-    const nodes = parseBody(md);
+    const { parseBlocks } = require("./tree");
+    const nodes = parseBlocks(md);
     const out = toMarkdown(nodes);
-    const reparsed = parseBody(out);
-    expect(reparsed.some((n) => n.type === "heading")).toBe(true);
-    expect(reparsed.some((n) => n.type === "paragraph")).toBe(true);
-    expect(reparsed.some((n) => n.type === "code")).toBe(true);
+    const reparsed = parseBlocks(out);
+    expect(reparsed.some((n: any) => n.type === "heading")).toBe(true);
+    expect(reparsed.some((n: any) => n.type === "paragraph")).toBe(true);
+    expect(reparsed.some((n: any) => n.type === "code")).toBe(true);
+  });
+
+  test("section node flattens", () => {
+    const root = buildSectionTree([h(1, "A"), p("B")]);
+    expect(toMarkdown(root)).toBe("# A\n\nB");
+  });
+});
+
+describe("flatten", () => {
+  test("flattens nested sections", () => {
+    const root = buildSectionTree([h(1, "A"), p("B"), h(2, "C"), p("D")]);
+    const flat = flatten(root);
+    expect(flat.map((n) => n.type)).toEqual(["heading", "paragraph", "heading", "paragraph"]);
+  });
+
+  test("root with no headings returns content only", () => {
+    const root = buildSectionTree([p("A"), p("B")]);
+    const flat = flatten(root);
+    expect(flat.map((n) => n.type)).toEqual(["paragraph", "paragraph"]);
   });
 });

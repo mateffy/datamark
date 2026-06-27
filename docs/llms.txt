@@ -1,27 +1,29 @@
 # datamark Documentation
 
-- [Frontmatter](/docs/core/frontmatter): Extract and split YAML frontmatter from Markdown strings.
-- [AST SDK](/docs/core): undefined
-- [parse() & stringify()](/docs/core/parse-and-stringify): Parse Markdown strings into typed documents and serialize them back.
-- [Tree Utilities](/docs/core/tree-utils): Query, filter, split, and serialize the AST without writing raw loops.
-- [YAML](/docs/core/yaml): Parse and stringify YAML with datamark's built-in helpers.
-- [API Documentation](/docs/examples/api-docs-format): Structured API docs with endpoints, parameters, and return types.
-- [Basic Format](/docs/examples/basic-format): A project plan with frontmatter, title, and step sections.
-- [Blog Post](/docs/examples/blog-post-format): A blog post with metadata, body content, and tags.
+- [API Doc Format](/docs/examples/api-docs-format): Parse endpoint documentation with parameters and responses.
+- [Basic Format](/docs/examples/basic-format): Define a simple format with parse and stringify.
+- [Blog Post Format](/docs/examples/blog-post-format): Parse metadata and body content with typed frontmatter.
+- [Changelog Format](/docs/examples/changelog-format): Parse a versioned changelog with release dates and bullet lists.
 - [Examples](/docs/examples): undefined
-- [Todo List](/docs/examples/todo-list-format): Parsing todo items with checkboxes, priorities, and descriptions.
+- [Meeting Notes Format](/docs/examples/meeting-notes-format): Parse meeting notes with attendees, agenda, and tracked action items.
+- [Recipe Format](/docs/examples/recipe-format): Parse a cooking recipe with typed frontmatter metadata, ingredients, and steps.
+- [Todo List Format](/docs/examples/todo-list-format): Parse checkbox items with priorities.
 - [The AST](/docs/explanation/ast): The fully typed abstract syntax tree that datamark produces from Markdown.
-- [Combinators](/docs/explanation/combinators): How node matchers, combinator modifiers, and structural combinators work under the hood.
 - [Explanation](/docs/explanation): undefined
-- [Format SDK](/docs/explanation/template-system): How the generator-based format system works, from parse runners to emit runners.
-- [Trace & Test](/docs/explanation/trace-and-test): Debugging formats with trace() and validating them in CI with test().
 - [Validation](/docs/explanation/validation): Standard Schema v1 support, validation errors, and typed frontmatter.
-- [What is datamark?](/docs): A TypeScript library for parsing Markdown into typed objects and serializing them back using declarative generator-based formats.
+- [What is datamark?](/docs): A TypeScript library for parsing Markdown into typed objects and serializing them back using declarative formats.
+- [Frontmatter](/docs/parse/frontmatter): Extract and split YAML frontmatter from Markdown strings.
+- [Parse SDK](/docs/parse): undefined
+- [parse()](/docs/parse/parse): Parse Markdown into a typed Document with a native section tree.
+- [Tree Utilities](/docs/parse/tree-utils): Query, filter, split, and serialize the AST without writing raw loops.
+- [YAML](/docs/parse/yaml): Parse and stringify YAML with datamark's built-in helpers.
 - [Quickstart](/docs/quickstart): Get started with datamark in under 5 minutes. Parse your first Markdown document into a typed object.
-- [datamark()](/docs/template/datamark-function): The format factory and all FormatConfig options.
-- [docs()](/docs/template/docs): Auto-generated format documentation from combinator metadata.
-- [Emit Combinators](/docs/template/emit-combinators): All combinators available in stringify generators.
+- [Builder Primitives](/docs/stringify/builders): Type-safe functions for building Markdown strings block by block.
+- [Document Serialization](/docs/stringify/document-serialization): Serialize AST nodes and full Documents back to Markdown.
+- [Stringify SDK](/docs/stringify): undefined
+- [datamark()](/docs/template/datamark-function): The format factory — create typed, self-testing formats from Markdown.
+- [Frontmatter in Formats](/docs/template/frontmatter): Reading, validating, and typing frontmatter with the Format SDK.
 - [Format SDK](/docs/template): undefined
-- [Parse Combinators](/docs/template/parse-combinators): All combinators available in parse generators.
-- [test()](/docs/template/test): Example-driven format validation.
-- [trace()](/docs/template/trace): Step-by-step debugging of format consumption.
+- [Parsing Patterns](/docs/template/parsing): Navigate the AST, extract data, and map Markdown to typed objects.
+- [Stringify & Markdown Primitives](/docs/template/stringify): Serialize typed data back to Markdown with builder functions from datamark/stringify.
+- [Testing Formats](/docs/template/testing): Inline examples, self-testing formats, and CI integration.

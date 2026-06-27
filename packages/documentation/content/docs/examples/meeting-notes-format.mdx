@@ -1,0 +1,27 @@
+---
+title: Meeting Notes Format
+description: Parse meeting notes with attendees, agenda, and tracked action items.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example parses meeting notes with a title containing the date, attendee lists, agenda items, and checkbox action items with owners. No frontmatter needed. It uses AST utilities (`inlineText`, `textContent`, `extractTodoItems`) for extraction and stringify primitives (`heading`, `list`) for reconstruction.
+
+<Example name="meeting-notes" />
+
+```typescript
+const result = MeetingNotesFormat.parse(meetingNotesMarkdown);
+console.log(result.title);            // "Sprint Planning — 2026-06-20"
+console.log(result.date);             // "2026-06-20"
+console.log(result.attendees.length); // 3
+console.log(result.actionItems[0].owner);     // "Alice"
+console.log(result.actionItems[0].completed); // false
+```
+
+## Key concepts
+
+- **Date extraction from heading** — regex pulls the ISO date out of the title
+- **`extractTodoItems()`** from the Parse SDK finds all checkbox items under the "Action Items" section
+- **Owner parsing from checkbox text** — action items follow the pattern `Owner: Task description`
+- **Ordered vs. unordered lists** — agenda uses numbered lists, attendees and action items use bullets
+- **`list()`** from `datamark/stringify` with `ordered: true` reconstructs numbered lists correctly

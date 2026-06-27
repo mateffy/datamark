@@ -18,30 +18,29 @@ This is powerful and well-supported, but it is fundamentally **imperative**. You
 
 The datamark approach [#the-datamark-approach]
 
-datamark gives you combinators that consume the AST declaratively:
+datamark gives you a unified AST with a native section tree, plus utility functions for querying and extracting data:
 
 ```typescript
-*parse(doc) {
-  const fm = yield* doc.frontmatter();
-  const title = yield* doc.consume(heading(1));
-  const sections = yield* doc.consume(splitByCombinator(heading(2)));
-  return { title: inlineText(title.children), sections };
+function parse(doc) {
+  const h1 = doc.root.children.find(n => n.type === "section");
+  const title = h1 ? inlineText(h1.heading.children) : "";
+  const sections = h1?.children.filter(n => n.type === "section") ?? [];
+  return { title, sections };
 }
 ```
 
-This reads like the document itself. Each line maps to a structural element.
+This reads like the document itself. The section tree mirrors the heading hierarchy, and utility functions make common patterns trivial.
 
-| Feature        | Remark                 | datamark        |
-| -------------- | ---------------------- | --------------- |
-| Ecosystem size | ✅ Massive              | Small           |
-| AST standard   | mdast                  | datamark AST    |
-| Plugin model   | Visitor-based          | Generator-based |
-| Bidirectional  | ❌ (separate stringify) | ✅ Built-in      |
-| TypeScript     | Partial                | Fully typed     |
-| Frontmatter    | Via plugin             | Built-in        |
-| Validation     | Via plugin             | Standard Schema |
-| Trace/debug    | Manual logging         | Step-by-step    |
-| Learning curve | Medium                 | Low             |
+| Feature        | Remark                 | datamark               |
+| -------------- | ---------------------- | ---------------------- |
+| Ecosystem size | ✅ Massive              | Small                  |
+| AST standard   | mdast                  | datamark AST           |
+| Plugin model   | Visitor-based          | Imperative + utilities |
+| Bidirectional  | ❌ (separate stringify) | ✅ Built-in             |
+| TypeScript     | Partial                | Fully typed            |
+| Frontmatter    | Via plugin             | Built-in               |
+| Validation     | Via plugin             | Standard Schema        |
+| Learning curve | Medium                 | Low                    |
 
 When to use remark [#when-to-use-remark]
 

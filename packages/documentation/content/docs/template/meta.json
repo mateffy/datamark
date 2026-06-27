@@ -3,10 +3,9 @@
   "pages": [
     "index",
     "datamark-function",
-    "parse-combinators",
-    "emit-combinators",
-    "trace",
-    "docs",
-    "test"
+    "frontmatter",
+    "parsing",
+    "stringify",
+    "testing"
   ]
 }

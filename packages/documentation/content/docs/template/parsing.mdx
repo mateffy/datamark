@@ -1,0 +1,173 @@
+---
+title: Parsing Patterns
+description: Navigate the AST, extract data, and map Markdown to typed objects.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+Your `parse` function receives a `Document` and returns typed data. This page covers the common patterns for walking the tree and extracting structured content.
+
+## The document structure
+
+```typescript
+import { parse } from "datamark";
+
+const doc = parse(markdown);
+// doc.frontmatter — parsed YAML or null
+// doc.root — SectionNode containing the full tree
+```
+
+<Example name="parsing-patterns" />
+
+`doc.root` is a `SectionNode` that contains the entire document. Its `children` contains both content nodes (paragraphs, code blocks, lists) and nested `SectionNode`s.
+
+## Finding sections
+
+The root contains top-level sections as `SectionNode`s in its `children`:
+
+```typescript
+import { parse, inlineText } from "datamark/parse";
+
+const doc = parse(markdown);
+const rootSection = doc.root.children.find(n => n.type === "section") as SectionNode;
+const topSections = rootSection.children.filter(n => n.type === "section") as SectionNode[];
+
+const firstHeading = topSections[0]?.heading;
+const title = firstHeading ? inlineText(firstHeading.children) : "";
+```
+
+### Helper functions
+
+```typescript
+import { sectionsAtDepth, sectionsByHeading } from "datamark/parse";
+
+// All h2 sections anywhere in the document
+const h2s = sectionsAtDepth(doc.root, 2);
+
+// All sections whose heading text is exactly "Parameters"
+const paramSections = sectionsByHeading(doc.root, "Parameters");
+```
+
+## Walking subsections
+
+Each section can contain more sections. Walk them recursively or split by heading:
+
+```typescript
+import { parse, inlineText } from "datamark/parse";
+
+const doc = parse(markdown);
+const h1 = doc.root.children.find(n => n.type === "section") as SectionNode;
+const subSections = h1.children.filter(n => n.type === "section") as SectionNode[];
+
+for (const section of subSections) {
+  const heading = inlineText(section.heading!.children).toLowerCase();
+  if (heading.includes("description")) {
+    // extract description
+  }
+  if (heading.includes("parameters")) {
+    // extract parameters
+  }
+}
+```
+
+## Extracting structured data
+
+### Code blocks as data
+
+Code blocks are the standard way to embed structured data in Markdown. Extract them by language and parse their contents:
+
+```typescript
+import { findAll, isCodeBlock } from "datamark/parse";
+
+// All JSON code blocks in a section
+const jsonBlocks = findAll(section, n => isCodeBlock(n, "json"));
+for (const block of jsonBlocks) {
+  const data = JSON.parse(block.value);
+}
+
+// All code blocks regardless of language
+const allCode = findAll(section, n => isCodeBlock(n));
+```
+
+### Lists
+
+Extract list items and their text:
+
+```typescript
+import { findAll, textContent } from "datamark/parse";
+
+const lists = findAll(doc.root, n => n.type === "list") as ListNode[];
+for (const list of lists) {
+  for (const item of list.children) {
+    const text = textContent(item).trim();
+    console.log(text);
+  }
+}
+```
+
+### Tables
+
+```typescript
+import { findAll, inlineText } from "datamark/parse";
+
+const tables = findAll(doc.root, n => n.type === "table") as TableNode[];
+for (const table of tables) {
+  const rows = table.children;
+  const headers = rows[0].children.map(c => inlineText(c.children));
+  const bodyRows = rows.slice(1).map(row =>
+    row.children.map(c => inlineText(c.children))
+  );
+}
+```
+
+### Inline text
+
+`inlineText()` extracts plain text from inline nodes (paragraphs, headings). It handles bold, italic, links, and images:
+
+```typescript
+import { parse, inlineText } from "datamark/parse";
+
+const doc = parse(markdown);
+const paragraph = doc.root.children.find(n => n.type === "paragraph") as ParagraphNode;
+const text = inlineText(paragraph.children);
+// "Visit the docs at example.com" — link text is preserved, href is not
+```
+
+`textContent()` is the recursive version. It extracts all text from any node:
+
+```typescript
+import { textContent } from "datamark/parse";
+
+const section = doc.root.children.find(n => n.type === "section") as SectionNode;
+const allText = textContent(section).trim();
+```
+
+### Todo items
+
+Use `extractTodoItems()` to find all checkbox items:
+
+```typescript
+import { extractTodoItems } from "datamark/parse";
+
+const todos = extractTodoItems(doc.root);
+for (const todo of todos) {
+  console.log(todo.text, todo.completed);
+}
+```
+
+## Positions and source mapping
+
+Every node carries an optional `position` with start/end line/column. This is useful for pointing to where an error occurred in the source file:
+
+```typescript
+import { find, isHeading } from "datamark/parse";
+
+const heading = find(doc.root, n => isHeading(n, 1));
+if (heading?.position) {
+  console.log(`Title is on line ${heading.position.start.line}`);
+}
+```
+
+<Callout type="info">
+  Positions are computed relative to the original input string, even when frontmatter is stripped. Error messages point to the right place in your source file.
+</Callout>

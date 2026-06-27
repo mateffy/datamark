@@ -26,56 +26,92 @@ Parse your first Markdown document into a typed object in three steps. About 5 m
     Create a file that describes how your Markdown is structured:
 
     ```typescript
-    import { datamark, heading, markdown, codeBlock, todoItem, inlineText, textContent, extractTodoItems, splitByCombinator } from "datamark";
+    import { datamark } from "datamark";
+    import { findAll, inlineText, textContent, isCodeBlock } from "datamark/parse";
+    import { frontmatter, heading, paragraph, codeBlock } from "datamark/stringify";
     import * as z from "zod";
 
-    const PlanFormat = datamark({
-      schema: z.object({
-        id: z.string(),
-        title: z.string(),
-        steps: z.array(z.object({
-          title: z.string(),
+    const PlanFrontmatterSchema = z.object({ id: z.string() });
+
+    const PlanSchema = z.object({
+      id: z.string(),
+      title: z.string(),
+      steps: z.array(
+        z.object({
           description: z.string(),
           scripts: z.array(z.string()),
-        })),
-      }),
+        })
+      ),
+    });
 
-      *parse(doc) {
-        const fm = yield* doc.frontmatter();
-        const titleNode = yield* doc.consume(heading(1));
-        const steps = yield* doc.consume(splitByCombinator(heading(2)), function* (subdoc) {
-          const h2 = yield* subdoc.consume(heading(2));
-          const body = yield* subdoc.consume(rest());
-          const scripts = body
-            .filter((n) => n.type === "code")
-            .map((n: any) => n.value);
-          return {
-            title: inlineText(h2.children),
-            description: textContent(body),
-            scripts,
-          };
-        });
+    const PlanFormat = datamark({
+      frontmatterSchema: PlanFrontmatterSchema,
+      schema: PlanSchema,
 
-        return { id: (fm as any)?.id ?? "", title: inlineText(titleNode.children), steps };
+      parse(doc) {
+        const id = doc.frontmatter.id;
+        const titleSection = doc.root.children.find((n) => n.type === "section") as any;
+        const title = titleSection ? inlineText(titleSection.heading.children) : "";
+
+        const steps = titleSection
+          ? (titleSection.children.filter((n: any) => n.type === "section") as any[]).map(
+              (section) => {
+                const scripts = findAll(section, (n) => isCodeBlock(n, "javascript")).map(
+                  (n: any) => n.value
+                );
+                const description = textContent(section).trim();
+                return { description, scripts };
+              }
+            )
+          : [];
+
+        return { id, title, steps };
       },
 
-      *stringify(doc, data) {
-        yield* doc.emitFrontmatter({ id: data.id, title: data.title });
-        yield* heading(1, data.title);
+      stringify(data) {
+        let md = frontmatter({ id: data.id }) + heading(data.title) + "\n\n";
         for (const step of data.steps) {
-          yield* heading(2, "Step");
-          if (step.description) yield* markdown(step.description);
-          for (const s of step.scripts) yield* codeBlock("javascript", s);
+          md += heading("Step", 2) + "\n\n" + paragraph(step.description) + "\n\n";
+          for (const script of step.scripts) {
+            md += codeBlock(script, "javascript") + "\n\n";
+          }
         }
+        return md;
       },
     });
+
+    const planMarkdown = `---
+    id: plan-001
+    ---
+    # Q3 Roadmap
+
+    ## Step
+
+    Set up the project.
+
+    \`\`\`javascript
+    npm init -y
+    \`\`\`
+
+    ## Step
+
+    Implement the core features.`;
+    ```
+
+    ```typescript
+    const result = PlanFormat.parse(planMarkdown);
+    console.log(result.id);     // "plan-001"
+    console.log(result.title);  // "Q3 Roadmap"
+    console.log(result.steps[0].description); // "Set up the project."
     ```
   </Step>
 
   <Step>
     Parse a document [#parse-a-document]
 
-    ````typescript
+    ```typescript
+    import { PlanFormat } from "./plan-format";
+
     const markdown = `---
     id: plan-001
     ---
@@ -100,26 +136,26 @@ Parse your first Markdown document into a typed object in three steps. About 5 m
     //   id: "plan-001",
     //   title: "Q3 Roadmap",
     //   steps: [
-    //     { title: "Set up project scaffolding", description: "Install dependencies.\n\n```javascript\nnpm init -y\n```", scripts: ["npm init -y"] },
+    //     { title: "Set up project scaffolding", description: "Install dependencies.", scripts: ["npm init -y"] },
     //     { title: "Implement core features", description: "Build the main functionality.", scripts: [] },
     //   ],
     // }
-    ````
+    ```
   </Step>
 </Steps>
 
 What happened? [#what-happened]
 
-1. `parse` turned the raw Markdown string into a typed AST.
-2. Your `parse` generator consumed that AST step by step using combinators.
-3. `doc.consume(splitByCombinator(heading(2)), generator)` split the document into H2-delimited chunks and ran your generator on each one.
-4. The final `return` value was validated against your Zod schema.
+1. `parse` turned the raw Markdown string into a typed AST with a section tree.
+2. Your `parse` function traversed the AST using utility functions like `findAll`, `textContent`, and `isCodeBlock`.
+3. The section tree made it easy to iterate over H2-delimited sections.
+4. The final return value was validated against your Zod schema.
 
 Where to go next [#where-to-go-next]
 
-| Goal                    | Link                                                  |
-| ----------------------- | ----------------------------------------------------- |
-| Understand how it works | [Format SDK](/docs/explanation/template-system)       |
-| Learn all combinators   | [Parse Combinators](/docs/template/parse-combinators) |
-| Look up core functions  | [AST SDK](/docs/core)                                 |
-| See more examples       | [Examples](/docs/examples)                            |
+| Goal                          | Link                                           |
+| ----------------------------- | ---------------------------------------------- |
+| Understand how it works       | [The AST](/docs/explanation/ast)               |
+| Learn about the format system | [Format SDK](/docs/template/datamark-function) |
+| Look up core functions        | [Parse SDK](/docs/parse)                       |
+| See more examples             | [Examples](/docs/examples)                     |

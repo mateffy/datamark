@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./parse": "./src/parse.ts",
+    "./stringify": "./src/stringify.ts"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
@@ -11,5 +13,8 @@
   "dependencies": {
     "marked": "^18.0.0",
     "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "zod": "^4.4.3"
   }
 }

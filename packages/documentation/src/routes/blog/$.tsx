@@ -32,7 +32,7 @@ export const Route = createFileRoute("/blog/$")({
         ? `${slugs.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ")} - datamark`
         : "Blog - datamark";
     const description =
-      "Articles about declarative Markdown parsing, generator-based APIs, and structured document formats in TypeScript.";
+      "Articles about declarative Markdown parsing, lightweight format systems, and structured document formats in TypeScript.";
 
     return {
       meta: [

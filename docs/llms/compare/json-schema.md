@@ -39,10 +39,12 @@ datamark combines schema validation with parsing logic:
 ```typescript
 const PlanFormat = datamark({
   schema: z.object({ title: z.string(), sections: z.array(...) }),
-  *parse(doc) {
-    const title = yield* doc.consume(heading(1));
-    const sections = yield* doc.consume(splitBy(heading(2)));
+  parse(doc) {
+    const h1 = doc.root.children.find(n => n.type === "section");
+    const title = h1 ? inlineText(h1.heading.children) : "";
+    const sections = h1?.children.filter(n => n.type === "section") ?? [];
     // ...map to schema shape
+    return { title, sections };
   },
 });
 ```
@@ -50,11 +52,11 @@ const PlanFormat = datamark({
 | Feature           | JSON Schema | datamark                |
 | ----------------- | ----------- | ----------------------- |
 | Output validation | ✅           | ✅ (via Standard Schema) |
-| Parsing logic     | ❌           | ✅ Generator functions   |
+| Parsing logic     | ❌           | ✅ Imperative functions  |
 | Bidirectional     | ❌           | ✅ Parse + stringify     |
-| Trace/debug       | ❌           | ✅ Step-by-step          |
+| Trace/debug       | ❌           | ❌                       |
 | Self-testing      | ❌           | ✅ Inline examples       |
-| Markdown-specific | ❌           | ✅ AST combinators       |
+| Markdown-specific | ❌           | ✅ AST utilities         |
 
 When to use JSON Schema [#when-to-use-json-schema]
 

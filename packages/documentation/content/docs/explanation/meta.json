@@ -3,9 +3,6 @@
   "pages": [
     "index",
     "ast",
-    "template-system",
-    "combinators",
-    "validation",
-    "trace-and-test"
+    "validation"
   ]
 }

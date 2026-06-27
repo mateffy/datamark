@@ -1,4 +1,5 @@
 import { defineConfig, defineDocs } from "fumadocs-mdx/config";
+import { remarkExample } from "./plugins/remark-example";
 
 export const docs = defineDocs({
   dir: "content/docs",
@@ -27,4 +28,8 @@ export const compare = defineDocs({
   },
 });
 
-export default defineConfig();
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [remarkExample],
+  },
+});

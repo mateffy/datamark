@@ -5,6 +5,9 @@
     "basic-format",
     "blog-post-format",
     "todo-list-format",
-    "api-docs-format"
+    "api-docs-format",
+    "changelog-format",
+    "recipe-format",
+    "meeting-notes-format"
   ]
 }

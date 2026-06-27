@@ -3,17 +3,18 @@ import {
   splitFrontmatter,
 } from "./frontmatter";
 import { parseYaml, stringifyYaml } from "./yaml";
-import { parseBody, type Document } from "./tree";
-import { toMarkdown } from "./tree-utils";
+import { parseBlocks, buildSectionTree, type Document } from "./tree";
+import { flatten, toMarkdown } from "./tree-utils";
 
 /**
  * Parse a markdown string into a structured document with a typed tree.
  *
  * - Extracts and parses YAML frontmatter
- * - Returns a tree of block nodes (headings, paragraphs, code blocks, etc.)
+ * - Returns a Document with a section tree rooted at `doc.root`
  *
- * Use the Format SDK for schema validation, title extraction, and declarative
- * parsing. This function is a low-level building block.
+ * Use tree utilities like `find()`, `findAll()`, `textContent()`, and
+ * `flatten()` for working with the AST. The Format SDK provides a higher-level
+ * wrapper for schema validation and declarative parsing.
  */
 export function parse(content: string): Document {
   const extracted = extractFrontmatter(content);
@@ -35,19 +36,21 @@ export function parse(content: string): Document {
     }
   }
 
-  const children = parseBody(body, content, bodyOffset);
+  const blocks = parseBlocks(body, content, bodyOffset);
+  const root = buildSectionTree(blocks);
 
   return {
     type: "document",
     frontmatter,
-    children,
+    root,
   };
 }
 
 /**
  * Serialize a document back into a markdown string.
  *
- * Frontmatter is emitted when present. Children are serialized as markdown.
+ * Frontmatter is emitted when present. The section tree is flattened
+ * back into a flat array of block nodes before serialization.
  */
 export function stringify(doc: Document): string {
   const lines: string[] = [];
@@ -59,7 +62,8 @@ export function stringify(doc: Document): string {
     lines.push("");
   }
 
-  const body = toMarkdown(doc.children);
+  const blocks = flatten(doc.root);
+  const body = toMarkdown(blocks);
   if (body) {
     lines.push(body);
   }

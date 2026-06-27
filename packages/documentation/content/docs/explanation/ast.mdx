@@ -13,12 +13,48 @@ When you call `parse(content)` on a Markdown string, datamark produces a `Docume
 interface Document {
   type: "document";
   frontmatter: Record<string, unknown> | null;
-  children: BlockNode[];
+  root: SectionNode;
 }
 ```
 
 - `frontmatter` — parsed YAML from `---` fences, or `null`
-- `children` — array of top-level block nodes
+- `root` — the root section of the document tree
+
+## Section tree
+
+The `root` is a `SectionNode` that organizes the entire document by heading depth:
+
+```typescript
+interface SectionNode {
+  type: "section";
+  heading: HeadingNode | null;
+  children: Node[];
+}
+```
+
+Headings become section boundaries. A section contains its heading (if any) and all content until the next heading of the same or lesser depth. The algorithm is single-pass, stack-based, and depth-agnostic — any heading depth works.
+
+<Example name="ast-demo" />
+
+<Callout type="info">
+  Content before the first heading stays in `root.children`. If there are no headings at all, the entire document is in `root.children`.
+</Callout>
+
+## Node hierarchy
+
+All nodes share a common base:
+
+```typescript
+interface Node {
+  type: string;
+  raw?: string;
+  position?: SourceSpan;
+}
+
+interface ParentNode extends Node {
+  children: Node[];
+}
+```
 
 ## Block nodes
 
@@ -29,8 +65,11 @@ interface Document {
 | `code` | `CodeNode` | `lang?: string`, `meta?: string`, `value: string` |
 | `blockquote` | `BlockquoteNode` | `children: BlockNode[]` |
 | `hr` | `HrNode` | — |
-| `list` | `ListNode` | `ordered: boolean`, `items: BlockNode[][]` |
-| `table` | `TableNode` | `header`, `rows`, `align` |
+| `list` | `ListNode` | `ordered: boolean`, `children: ListItemNode[]` |
+| `listItem` | `ListItemNode` | `children: BlockNode[]` |
+| `table` | `TableNode` | `children: TableRowNode[]`, `align` |
+| `tableRow` | `TableRowNode` | `children: TableCellNode[]` |
+| `tableCell` | `TableCellNode` | `children: InlineNode[]` |
 | `html` | `HtmlBlockNode` | `value: string` |
 | `space` | `SpaceNode` | — |
 
@@ -69,7 +108,9 @@ interface SourceSpan {
 import { parse } from "datamark";
 
 const doc = parse(`# Hello\n\nThis is a **paragraph**.`);
-console.log(doc.children[0].type); // "heading"
-console.log(doc.children[0].depth); // 1
-console.log(doc.children[1].type); // "paragraph"
+const topSection = doc.root.children[0] as any;
+const paragraph = topSection.children.find((n: any) => n.type === "paragraph");
+console.log(topSection.type);        // "section"
+console.log(topSection.heading.depth); // 1
+console.log(paragraph.type);           // "paragraph"
 ```

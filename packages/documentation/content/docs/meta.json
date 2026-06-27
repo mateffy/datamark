@@ -4,8 +4,9 @@
     "index",
     "quickstart",
     "explanation",
-    "core",
     "template",
+    "parse",
+    "stringify",
     "examples"
   ]
 }
