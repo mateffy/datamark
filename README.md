@@ -6,7 +6,6 @@
 </p>
 
 <br/>
-<br/>
 
 # `datamark` – Use Markdown as a Data Format
 
