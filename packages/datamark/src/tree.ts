@@ -391,14 +391,24 @@ function convertBlockTokens(tokens: Token[], state: PosState): BlockNode[] {
           const hasBlock = itemTokens.some((tok: any) => blockTypes.has(tok.type));
           const children = hasBlock
             ? convertBlockTokens(itemTokens, state)
-            : [
-                {
-                  type: "paragraph",
-                  children: convertInlineTokens(itemTokens, state),
-                  raw: item.raw ?? "",
-                  position: item.raw ? advance(state, item.raw) : undefined,
-                } as ParagraphNode,
-              ];
+            : (() => {
+                // Flatten wrapped text tokens so inline elements (images, links,
+                // strong, em) inside list items are parsed correctly.
+                const flattened = itemTokens.flatMap((tok: any) =>
+                  tok.type === "text" && tok.tokens ? tok.tokens : [tok]
+                );
+                const saved = state.offset;
+                const paraChildren = convertInlineTokens(flattened, state);
+                state.offset = saved;
+                return [
+                  {
+                    type: "paragraph",
+                    children: paraChildren,
+                    raw: item.raw ?? "",
+                    position: item.raw ? advance(state, item.raw) : undefined,
+                  } as ParagraphNode,
+                ];
+              })();
           return {
             type: "listItem",
             children,

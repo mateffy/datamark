@@ -1,0 +1,19 @@
+{
+  "name": "@datamark/changelog",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./keep-a-changelog": "./src/keep-a-changelog.ts",
+    "./conventional-changelog": "./src/conventional-changelog.ts",
+    "./github-releases": "./src/github-releases.ts",
+    "./common-changelog": "./src/common-changelog.ts"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "datamark": "workspace:*",
+    "zod": "^4.4.3"
+  }
+}

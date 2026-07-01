@@ -16,6 +16,23 @@ Practical format definitions for common document patterns. Each example uses the
   <Card title="Meeting Notes" description="Attendees, agenda, and tracked action items with extractTodoItems" href="/docs/examples/meeting-notes-format" />
 </Cards>
 
+## Ready-made packages
+
+For common document types, you don't have to build formats from scratch. Install the dedicated package and get typed, tested, ready-to-use formats:
+
+```bash
+npm install @datamark/changelog
+```
+
+```typescript
+import { keepAChangelog } from "@datamark/changelog";
+const data = keepAChangelog.parse(markdown);
+```
+
+Available packages:
+
+- **`@datamark/changelog`** — Keep a Changelog, Conventional Changelog, GitHub Releases, and Common Changelog formats.
+
 ## Pattern: Three imports
 
 Every format definition imports from three places:
